@@ -5307,12 +5307,21 @@ async function seqBuscarRota(){
     // Keep the existing return date/time controls. The actual return address is a point in the sequence.
     seqEl('idaVolta')?.addEventListener('change',function(){
       if(!seqAtiva())return;
+      const s=seqLer();if(!s||s.pontos.length<2)return;
       if(this.value==='sim'){
-        const s=seqLer(),legs=s.pontos.slice(1).map((p,j)=>({p,a:s.pontos[j]})).filter(x=>x.p.tipo==='cliente');
+        const legs=s.pontos.slice(1).map((p,j)=>({p,a:s.pontos[j]})).filter(x=>x.p.tipo==='cliente');
         if(legs.length===1){
           const lastIndex=s.pontos.indexOf(legs[0].p);
           s.pontos.splice(lastIndex+1,0,seqCriarPonto(legs[0].a.endereco));
           seqInvalidar(s);seqGuardar(s,true);calcular(false);seqPersistir();
+        }
+      }else{
+        // Apenas ida: retirar o retorno automático se ele for exatamente o
+        // caminho inverso do único trecho de cliente. Preservar paradas extras.
+        if(s.pontos.length===3 && s.pontos[1].tipo==='cliente' &&
+           s.pontos[2].tipo==='cliente' &&
+           s.pontos[2].endereco.trim().toLowerCase()===s.pontos[0].endereco.trim().toLowerCase()){
+          s.pontos.pop();seqInvalidar(s);seqGuardar(s,true);calcular(false);seqPersistir();
         }
       }
     });
