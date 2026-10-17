@@ -1100,7 +1100,7 @@ window.seqMensagemCliente=function(){return null};
 window.seqAtiva=function(){return false};
 </script>
 <style id="michelon-gps-sequencia-v2">.seq-gps-btn{width:auto!important;max-width:100%!important;margin:8px 0 4px!important;padding:9px 12px!important;background:#e4f5f1!important;color:#076b63!important;border:1px solid #9bd9cd!important;border-radius:10px!important;font-size:13px!important;font-weight:800!important}.seq-gps-btn:disabled{opacity:.6}</style>
-</head>
+<style id="michelon-pedagio-pendente-v59">.seq-ped-pendente{margin:10px 0;padding:11px;border-radius:10px;background:#fff4dd;color:#7c4100;font-size:13px;font-weight:700;line-height:1.5}.seq-conferir-mapa{display:inline-flex;margin:5px 0 12px;padding:10px 12px;border-radius:10px;background:#e5f4f2;color:#075e59;font-size:13px;font-weight:800;text-decoration:none}</style></head>
 <body>
 <noscript><div class="seq-aviso-previa">Este arquivo está em modo de visualização. Para importar, adicionar paradas e calcular, abra a versão publicada do sistema no Safari.</div></noscript>
 <nav class="mcBottom" aria-label="Navegação principal"><div class="mcNav">
@@ -5130,6 +5130,15 @@ function seqRender(){
   }
   row.appendChild(grid);
   if(p.pedNota){const nota=document.createElement('div');nota.className='hint';nota.textContent=p.pedNota;row.appendChild(nota);}
+  if(p.ped===''){
+    const aviso=document.createElement('div');aviso.className='seq-ped-pendente';
+    aviso.textContent='⚠️ Pedágio não confirmado — não significa R$ 0,00. Confira as praças e preencha o valor acima para concluir a cotação.';
+    row.appendChild(aviso);
+    const mapa=document.createElement('a');mapa.className='seq-conferir-mapa';mapa.target='_blank';mapa.rel='noopener noreferrer';
+    mapa.textContent='🗺️ Abrir este trecho no Google Maps';
+    mapa.href='https://www.google.com/maps/dir/?'+new URLSearchParams({api:'1',origin:s.pontos[j].endereco,destination:p.endereco,travelmode:'driving'});
+    row.appendChild(mapa);
+  }
   details.appendChild(row);
  });
  box.appendChild(details);seqAjustarTela();
