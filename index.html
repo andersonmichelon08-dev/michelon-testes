@@ -5366,13 +5366,35 @@ const MX_V81_PRAÇAS_AUTOBAN=[
 // V82: diagnóstico geométrico por trecho, sem assumir tarifa como confirmada.
 // As coordenadas abaixo são pontos de referência aproximados do catálogo
 // existente, e NÃO substituem a verificação da praça e sentido.
+// V84: diagnóstico da ORDEM dos pontos ao longo da geometria de cada trecho.
+// É diagnóstico, não cobrança automática: referência aproximada pode estar em via paralela.
+function mxV84PosicaoNaRota(p,coords){
+ let best={dist:Infinity,indice:-1,frac:0};
+ for(let i=1;i<coords.length;i++){
+  const a=coords[i-1],b=coords[i];
+  if(!Array.isArray(a)||!Array.isArray(b))continue;
+  const lat=p.lat*Math.PI/180, sx=111.32*Math.cos(lat),sy=111.32;
+  const ax=(a[0]-p.lon)*sx,ay=(a[1]-p.lat)*sy;
+  const bx=(b[0]-p.lon)*sx,by=(b[1]-p.lat)*sy;
+  const dx=bx-ax,dy=by-ay,den=dx*dx+dy*dy;
+  const t=den?Math.max(0,Math.min(1,-(ax*dx+ay*dy)/den)):0;
+  const d=Math.hypot(ax+t*dx,ay+t*dy);
+  if(d<best.dist)best={dist:d,indice:i-1,frac:t};
+ }
+ return best;
+}
 function mxV82DiagnosticoGeometria(rota){
  const coords=Array.isArray(rota.coords)?rota.coords:[];
- if(coords.length<2)return 'DIAGNÓSTICO V83: SEM GEOMETRIA DA ROTA (0 ou 1 ponto).';
- const candidatos=PEDAGIOS_CATALOGO.filter(p=>p.rodovia==='SP-348').map(p=>({p,dist:distKmPontoRota(p,coords)})).sort((a,b)=>a.dist-b.dist);
- const fmt=x=>x.p.nome+' '+(Number.isFinite(x.dist)?x.dist.toFixed(2).replace('.',',')+' km':'distância indisponível');
- const perto=candidatos.filter(x=>x.dist<=2.2);
- return 'DIAGNÓSTICO V83 — '+coords.length+' pontos no traçado; referências Bandeirantes a até 2,2 km: '+(perto.length?perto.map(fmt).join(' / '):'nenhuma')+'; distâncias de TODOS os pontos cadastrados: '+(candidatos.length?candidatos.map(fmt).join(' / '):'nenhum ponto cadastrado')+'. ATENÇÃO: proximidade não comprova travessia nem autoriza cobrança.';
+ if(coords.length<2)return 'DIAGNÓSTICO V84: geometria indisponível.';
+ const lista=PEDAGIOS_CATALOGO.filter(p=>p.rodovia==='SP-348')
+  .map(p=>({p,...mxV84PosicaoNaRota(p,coords)}))
+  .sort((a,b)=>(a.indice+a.frac)-(b.indice+b.frac));
+ const fmt=x=>x.p.nome+' ('+x.dist.toFixed(2).replace('.',',')+' km da linha, posição '+(x.indice+1)+'/'+coords.length+')';
+ const perto=lista.filter(x=>x.dist<=2.2);
+ return 'DIAGNÓSTICO V84 — '+coords.length+' pontos; ordem das referências próximas no SENTIDO DESTE TRECHO: '+
+  (perto.length?perto.map(fmt).join(' → '):'nenhuma até 2,2 km')+
+  '. Referências mais distantes: '+(lista.filter(x=>x.dist>2.2).map(fmt).join(' / ')||'nenhuma')+
+  '. ATENÇÃO: a ordem e a proximidade NÃO confirmam passagem pela praça ou cobrança.';
 }
 function mxV81NotaGuarulhos(origem,destino,rota){
  const n=mxTollNorm;
