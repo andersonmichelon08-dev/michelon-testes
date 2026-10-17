@@ -5351,10 +5351,32 @@ function mxV77PedagioBandeirantes(origem,destino,rota){
  rota.pedNota='ESTIMATIVA A CONFERIR: R$ 12,80 (referência Sumaré, Bandeirantes SP-348, julho/2026). A rodovia foi identificada, mas a passagem pela praça e o sentido NÃO foram confirmados. Verifique antes de enviar a cotação.';
  return 12.80;
 }
+// V81: catálogo de referência da concessionária, vigente desde 01/07/2026.
+// Exibir para conferência, sem somar automaticamente praças não identificadas.
+const MX_V81_PRAÇAS_AUTOBAN=[
+ {rodovia:'SP-348 Bandeirantes',nome:'Sumaré',km:115.5,valor:12.80},
+ {rodovia:'SP-348 Bandeirantes',nome:'Itupeva',km:77.43,valor:14.30},
+ {rodovia:'SP-348 Bandeirantes',nome:'Campo Limpo/Caieiras',km:'39/36',valor:14.50},
+ {rodovia:'SP-348 Bandeirantes',nome:'Limeira B',km:159.55,valor:9.70},
+ {rodovia:'SP-330 Anhanguera',nome:'Nova Odessa',km:118,valor:12.80},
+ {rodovia:'SP-330 Anhanguera',nome:'Valinhos',km:'82/81',valor:14.30},
+ {rodovia:'SP-330 Anhanguera',nome:'Perus',km:26.5,valor:14.50},
+ {rodovia:'SP-330 Anhanguera',nome:'Limeira A',km:152,valor:9.70}
+];
+function mxV81NotaGuarulhos(origem,destino,rota){
+ const n=mxTollNorm;
+ const pontos=seqLer()?.pontos||[];
+ const texto=n([origem,destino,...pontos.map(p=>p.endereco)].join(' '));
+ const vias=n((rota.roads||[]).join(' '));
+ if(!/guarulhos|helio smidt|gru|aeroporto internacional de sao paulo/.test(texto+' '+vias) || !/bandeirantes|sp 348/.test(vias))return '';
+ const lista=MX_V81_PRAÇAS_AUTOBAN.filter(p=>p.rodovia.includes('Bandeirantes'));
+ return 'REFERÊNCIA OFICIAL AUTOBAN (01/07/2026), NÃO SOMADA: '+lista.map(p=>p.nome+' km '+p.km+' R$ '+p.valor.toFixed(2).replace('.',',')).join(' • ')+'. ATENÇÃO: são possíveis praças do corredor, NÃO uma lista de praças atravessadas. Identifique no mapa as praças efetivas de CADA sentido e preencha o total manualmente. Fonte: '+SEQ_FONTE_AUTOBAN;
+}
 async function seqPedagiosTrecho(origem,destino,rota){
   const regional=mxV77PedagioBandeirantes(origem,destino,rota);
   if(regional!==null)return regional;
-  const salvo=mxTollLookup(origem,destino,rota.km);
+  const notaGuarulhos=mxV81NotaGuarulhos(origem,destino,rota);
+  const salvo=notaGuarulhos?null:mxTollLookup(origem,destino,rota.km);
   if(salvo!==null){
     rota.pedNota='Valor informado anteriormente neste navegador para este trecho. Confira se a tarifa e o caminho continuam iguais.';
     return salvo;
@@ -5364,12 +5386,12 @@ async function seqPedagiosTrecho(origem,destino,rota){
     if(resultado.encontrados>0 && resultado.incompletos===0 && Number.isFinite(resultado.total)){
       // A consulta gratuita é indicativa: sem verificação de sentido/tarifa,
       // não se deve lançar automaticamente no custo do cliente.
-      rota.pedNota='PEDÁGIO PENDENTE — a consulta pública retornou registros próximos, mas não verificou passagem pela praça nem sentido. Nenhuma tarifa foi somada automaticamente. Informe o total deste trecho após conferir a rota.';
+      rota.pedNota=(notaGuarulhos||'PEDÁGIO PENDENTE — a consulta pública retornou registros próximos, mas não verificou passagem pela praça nem sentido. Nenhuma tarifa foi somada automaticamente. Informe o total deste trecho após conferir a rota.');
       return null;
     }
-    rota.pedNota='PEDÁGIO PENDENTE — a consulta pública encontrou '+resultado.encontrados+' possíveis registros próximos da rota, mas não confirmou praças, sentido e tarifas. Registros repetidos ou de vias paralelas NÃO foram somados. Confira as praças no mapa e informe o total deste trecho manualmente.';
+    rota.pedNota=notaGuarulhos||('PEDÁGIO PENDENTE — a consulta pública encontrou '+resultado.encontrados+' possíveis registros próximos da rota, mas não confirmou praças, sentido e tarifas. Registros repetidos ou de vias paralelas NÃO foram somados. Confira as praças no mapa e informe o total deste trecho manualmente.');
   }catch(e){
-    rota.pedNota='Consulta gratuita indisponível. Confira as praças na rota e informe o total deste trecho. Rodovias identificadas: '+(rota.roads||[]).join(', ');
+    rota.pedNota=notaGuarulhos||('Consulta gratuita indisponível. Confira as praças na rota e informe o total deste trecho. Rodovias identificadas: '+(rota.roads||[]).join(', '));
   }
   return null;
 }
