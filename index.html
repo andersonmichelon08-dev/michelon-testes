@@ -1348,7 +1348,7 @@ async function compartilharCartao(){
       <div class="metric"><small>Pedágios</small><strong id="cPed">R$ 0,00</strong></div>
       <div class="metric"><small>Custo total</small><strong id="custoTotal">R$ 0,00</strong></div>
       <div class="metric"><small>Valor por passageiro</small><strong id="porPass">R$ 0,00</strong></div>
-      <div class="metric full"><small>PREÇO PROVISÓRIO — confirme todos os pedágios antes de enviar</small><div class="total" id="precoFinal">R$ 0,00</div></div>
+      <div class="metric full"><small>PREÇO PROVISÓRIO — confira as praças e os pedágios antes de enviar</small><div class="total" id="precoFinal">R$ 0,00</div></div>
     </div>
   </div>
 
@@ -5328,7 +5328,30 @@ function mxPedagioRegionalV73(origem,destino,rota){
 // V76: Não transformar tarifa de outra rodovia em preço confirmado.
 // Valores informados manualmente pelo motorista são reaproveitados apenas
 // quando o trecho e a distância correspondem; a confirmação segue explícita.
+// V77: referência regional verificada na publicação da concessionária (01/07/2026).
+// Aplicar somente como ESTIMATIVA, jamais como tarifa confirmada da rota.
+// Exige corredor Limeira/Viracopos, SP-348 na rota e distância compatível.
+function mxV77PedagioBandeirantes(origem,destino,rota){
+ const n=mxTollNorm;
+ const a=n(origem),b=n(destino);
+ const limeira=x=>/\blimeira\b/.test(x);
+ const aeroporto=x=>/viracopos|aeroporto internacional de campinas|aeroporto de campinas|terminal 1|rua exportacao|13054 709/.test(x);
+ const pontos=seqLer()?.pontos||[];
+ const primeira=n(pontos[0]?.endereco),ultima=n(pontos[pontos.length-1]?.endereco);
+ const rotaCompleta=pontos.length===3 && limeira(primeira) && primeira===ultima;
+ const parDireto=(limeira(a)&&aeroporto(b))||(limeira(b)&&aeroporto(a));
+ const retornoDaSequencia=rotaCompleta && limeira(b) && a===n(pontos[1]?.endereco);
+ const idaDaSequencia=rotaCompleta && limeira(a) && b===n(pontos[1]?.endereco);
+ const vias=(rota.roads||[]).map(n).join(' | ');
+ const bandeirantes=/bandeirantes|sp[ -]?348/.test(vias);
+ const anhanguera=/anhanguera|sp[ -]?330|br[ -]?050/.test(vias);
+ if(!(parDireto||retornoDaSequencia||idaDaSequencia)||!bandeirantes||anhanguera||!(rota.km>=58&&rota.km<=82))return null;
+ rota.pedNota='ESTIMATIVA A VALIDAR: R$ 12,80 (praça Sumaré, Bandeirantes SP-348, referência concessionária 01/07/2026). Confirme no mapa se este trecho cruza a praça. Não é tarifa automaticamente confirmada.';
+ return 12.80;
+}
 async function seqPedagiosTrecho(origem,destino,rota){
+  const regional=mxV77PedagioBandeirantes(origem,destino,rota);
+  if(regional!==null)return regional;
   const salvo=mxTollLookup(origem,destino,rota.km);
   if(salvo!==null){
     rota.pedNota='Valor informado anteriormente neste navegador para este trecho. Confira se a tarifa e o caminho continuam iguais.';
