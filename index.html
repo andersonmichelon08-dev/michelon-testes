@@ -5385,16 +5385,16 @@ function mxV84PosicaoNaRota(p,coords){
 }
 function mxV82DiagnosticoGeometria(rota){
  const coords=Array.isArray(rota.coords)?rota.coords:[];
- if(coords.length<2)return 'DIAGNÓSTICO V84: geometria indisponível.';
+ if(coords.length<2)return 'DIAGNÓSTICO V85: geometria indisponível.';
  const lista=PEDAGIOS_CATALOGO.filter(p=>p.rodovia==='SP-348')
   .map(p=>({p,...mxV84PosicaoNaRota(p,coords)}))
   .sort((a,b)=>(a.indice+a.frac)-(b.indice+b.frac));
  const fmt=x=>x.p.nome+' ('+x.dist.toFixed(2).replace('.',',')+' km da linha, posição '+(x.indice+1)+'/'+coords.length+')';
  const perto=lista.filter(x=>x.dist<=2.2);
- return 'DIAGNÓSTICO V84 — '+coords.length+' pontos; ordem das referências próximas no SENTIDO DESTE TRECHO: '+
+ return 'DIAGNÓSTICO V85 — '+coords.length+' pontos; ordem das referências próximas no SENTIDO DESTE TRECHO: '+
   (perto.length?perto.map(fmt).join(' → '):'nenhuma até 2,2 km')+
   '. Referências mais distantes: '+(lista.filter(x=>x.dist>2.2).map(fmt).join(' / ')||'nenhuma')+
-  '. ATENÇÃO: a ordem e a proximidade NÃO confirmam passagem pela praça ou cobrança.';
+  '. ATENÇÃO: a ordem e a proximidade NÃO confirmam passagem pela praça ou cobrança. Campo Limpo (capital → interior) e Caieiras (interior → capital) são praças distintas, apesar da referência aproximada conjunta usada neste diagnóstico.';
 }
 function mxV81NotaGuarulhos(origem,destino,rota){
  const n=mxTollNorm;
@@ -5404,7 +5404,7 @@ function mxV81NotaGuarulhos(origem,destino,rota){
  if(!/guarulhos|helio smidt|gru|aeroporto internacional de sao paulo/.test(texto+' '+vias) || !/bandeirantes|sp 348/.test(vias))return '';
  const lista=MX_V81_PRAÇAS_AUTOBAN.filter(p=>p.rodovia.includes('Bandeirantes'));
  const geometria=mxV82DiagnosticoGeometria(rota);
- return geometria+' REFERÊNCIA OFICIAL AUTOBAN (01/07/2026), NÃO SOMADA: '+lista.map(p=>p.nome+' km '+p.km+' R$ '+p.valor.toFixed(2).replace('.',',')).join(' • ')+'. ATENÇÃO: são possíveis praças do corredor, NÃO uma lista de praças atravessadas. Identifique no mapa as praças efetivas de CADA sentido e preencha o total manualmente. Fonte: '+SEQ_FONTE_AUTOBAN;
+ return geometria+' REFERÊNCIA OFICIAL AUTOBAN (01/07/2026), NÃO SOMADA: '+lista.map(p=>p.nome+' km '+p.km+' R$ '+p.valor.toFixed(2).replace('.',',')).join(' • ')+'. ATENÇÃO: são possíveis praças do corredor, NÃO uma lista de praças atravessadas. A referência Campo Limpo/Caieiras é aproximada e NÃO distingue as duas praças. Identifique as praças efetivas de CADA sentido e preencha o total manualmente. Fonte: '+SEQ_FONTE_AUTOBAN;
 }
 async function seqPedagiosTrecho(origem,destino,rota){
   const regional=mxV77PedagioBandeirantes(origem,destino,rota);
