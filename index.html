@@ -1100,7 +1100,16 @@ window.seqMensagemCliente=function(){return null};
 window.seqAtiva=function(){return false};
 </script>
 <style id="michelon-gps-sequencia-v2">.seq-gps-btn{width:auto!important;max-width:100%!important;margin:8px 0 4px!important;padding:9px 12px!important;background:#e4f5f1!important;color:#076b63!important;border:1px solid #9bd9cd!important;border-radius:10px!important;font-size:13px!important;font-weight:800!important}.seq-gps-btn:disabled{opacity:.6}</style>
-<style id="michelon-pedagio-pendente-v59">.seq-ped-pendente{margin:10px 0;padding:11px;border-radius:10px;background:#fff4dd;color:#7c4100;font-size:13px;font-weight:700;line-height:1.5}.seq-conferir-mapa{display:inline-flex;margin:5px 0 12px;padding:10px 12px;border-radius:10px;background:#e5f4f2;color:#075e59;font-size:13px;font-weight:800;text-decoration:none}</style></head>
+<style id="michelon-pedagio-pendente-v59">.seq-ped-pendente{margin:10px 0;padding:11px;border-radius:10px;background:#fff4dd;color:#7c4100;font-size:13px;font-weight:700;line-height:1.5}.seq-conferir-mapa{display:inline-flex;margin:5px 0 12px;padding:10px 12px;border-radius:10px;background:#e5f4f2;color:#075e59;font-size:13px;font-weight:800;text-decoration:none}</style>
+<style id="michelon-v75-ajuste-destino">
+/* Sugestoes dentro da largura do campo, inclusive em telas pequenas */
+.seq-endereco,.seq-endereco .citywrap,.seq-row,.seq-row .grid,.seq-row .grid > div{min-width:0;max-width:100%}
+.seq-endereco input,.seq-endereco .citywrap input{display:block;width:100%;max-width:100%;min-width:0;box-sizing:border-box;text-overflow:ellipsis}
+.seq-endereco .citylist,.seq-endereco .mxAutoList,.seq-endereco .citywrap > .citylist{left:0!important;right:0!important;width:100%!important;max-width:100%!important;box-sizing:border-box;overflow-x:hidden;overflow-y:auto;overflow-wrap:anywhere;white-space:normal}
+.seq-endereco .cityitem,.seq-endereco .seq-sugestao{max-width:100%;white-space:normal;overflow-wrap:anywhere;word-break:break-word}
+@media(max-width:700px){.seq-endereco .citylist,.seq-endereco .mxAutoList{max-height:220px!important}}
+</style>
+</head>
 <body>
 <noscript><div class="seq-aviso-previa">Este arquivo está em modo de visualização. Para importar, adicionar paradas e calcular, abra a versão publicada do sistema no Safari.</div></noscript>
 <nav class="mcBottom" aria-label="Navegação principal"><div class="mcNav">
@@ -1339,7 +1348,7 @@ async function compartilharCartao(){
       <div class="metric"><small>Pedágios</small><strong id="cPed">R$ 0,00</strong></div>
       <div class="metric"><small>Custo total</small><strong id="custoTotal">R$ 0,00</strong></div>
       <div class="metric"><small>Valor por passageiro</small><strong id="porPass">R$ 0,00</strong></div>
-      <div class="metric full"><small>Preço sugerido</small><div class="total" id="precoFinal">R$ 0,00</div></div>
+      <div class="metric full"><small>PREÇO PROVISÓRIO — confirme todos os pedágios antes de enviar</small><div class="total" id="precoFinal">R$ 0,00</div></div>
     </div>
   </div>
 
@@ -3286,17 +3295,17 @@ async function recalcularOrcamento(){
     if($('kmView')) $('kmView').textContent=km.toFixed(1)+' km';
     if($('litros')) $('litros').textContent=litros.toFixed(1)+' L';
     if($('cComb')) $('cComb').textContent=precoLitro>0?brl(comb):'Informe R$/L';
-    if($('cPed')) $('cPed').textContent=brl(pedagios);
+    if($('cPed')) $('cPed').textContent=pedagioPendente?'Não confirmado':brl(pedagios);
     if($('custoTotal')) $('custoTotal').textContent=brl(custo)+(pedagioPendente?' (PARCIAL)':'');
-    if($('precoFinal')) $('precoFinal').textContent=brl(preco);
-    if($('porPass')) $('porPass').textContent=brl(porPass);
+    if($('precoFinal')) $('precoFinal').textContent=brl(preco)+(pedagioPendente?' (PARCIAL — PEDÁGIOS PENDENTES)':'');
+    if($('porPass')) $('porPass').textContent=brl(porPass)+(pedagioPendente?' (PARCIAL)':'');
 
     // Agora tenta gerar a mensagem completa e salvar o rascunho.
     try{ calcular(false); }catch(e){ console.warn('Parte secundária do cálculo:',e); }
     try{ saveQuote(); }catch(e){ console.warn('Não foi possível salvar o rascunho:',e); }
 
     const st=$('rotaStatus');
-    if(st){ st.className='status ok'; st.textContent='✅ Orçamento recalculado.'; }
+    if(st){ st.className=pedagioPendente?'status warn':'status ok'; st.textContent=pedagioPendente?'⚠️ Cálculo parcial: pedágios não confirmados. Não envie como preço definitivo.':'✅ Orçamento recalculado.'; }
   }catch(e){
     alert('O recálculo encontrou um erro. Os campos da cotação continuam preservados.');
     console.error(e);
@@ -3331,7 +3340,7 @@ function calcular(autosave=true){
   $('cPed').textContent=pedagioPendente?'Não confirmado':brl(pedagios);
   $('custoTotal').textContent=brl(custo);
   if($('valorKmView')) $('valorKmView').textContent=brl(valorKm)+'/km';
-  $('precoFinal').textContent=brl(preco)+(pedagioPendente?' (PARCIAL)':'');
+  $('precoFinal').textContent=brl(preco)+(pedagioPendente?' (PARCIAL — PEDÁGIOS PENDENTES)':'');
   $('porPass').textContent=brl(porPass)+(pedagioPendente?' (PARCIAL)':'');
 
   const aviso=$('calcAviso');
@@ -5001,7 +5010,7 @@ function seqSincronizar(){
     seqEl('destinoRetorno').value=cliente.length>1?cliente[cliente.length-1].b:'';
   }else {for(const id of ['origem','destino','origemRetorno','destinoRetorno'])seqEl(id).value='';}
   const t=seqTotais();seqEl('kmTotalInput').value=t.clienteKm.toFixed(1);
-  const pedPendente=s.pontos.some((p,i)=>i>0&&p.tipo==='cliente'&&p.ped==='');
+  const pedPendente=s.pontos.some((p,i)=>i>0&&p.ped==='');
   seqEl('pedagios').value=pedPendente?'':t.clientePed.toFixed(2);
   seqEl('tempo').value=s.sec?formatDuration(s.sec):'-';
 }
@@ -5316,23 +5325,30 @@ function mxPedagioRegionalV73(origem,destino,rota){
  rota.pedNota='ESTIMATIVA A CONFERIR — retorno pela Anhanguera (SP-330), praça Nova Odessa km 118, R$ 12,80 (referência julho/2026, carro). Confira se o percurso cruza a praça e se a tarifa continua vigente.';
  return 12.80;
 }
+// V76: Não transformar tarifa de outra rodovia em preço confirmado.
+// Valores informados manualmente pelo motorista são reaproveitados apenas
+// quando o trecho e a distância correspondem; a confirmação segue explícita.
 async function seqPedagiosTrecho(origem,destino,rota){
   const salvo=mxTollLookup(origem,destino,rota.km);
-  if(salvo!==null){rota.pedNota='Valor reutilizado de orçamento confirmado anteriormente neste navegador (até 90 dias). Verifique mudanças de tarifa ou rota.';return salvo;}
-  const regional=mxPedagioRegionalV73(origem,destino,rota);
-  if(regional!==null)return regional;
-  const conhecido=pedagioSaoPauloAtibaia(origem,destino,rota.roads||[]);
-  if(conhecido!==null){rota.pedNota='Estimativa Mairiporã / Fernão Dias: R$ 3,70 por passagem (ANTT, maio/2026).';return conhecido;}
-  const autoban=seqPedagioLimeiraSaoPaulo(origem,destino,rota);
-  if(autoban!==null){rota.pedNota='Estimativa corredor usual AutoBAn: 12,80 + 14,30 + 14,50 = R$ 41,60 por sentido. Tarifas julho/2026, carro de passeio, sem descontos. Confira a rota no mapa.';return autoban;}
+  if(salvo!==null){
+    rota.pedNota='Valor informado anteriormente neste navegador para este trecho. Confira se a tarifa e o caminho continuam iguais.';
+    return salvo;
+  }
   try{
-    const resultado=await limitePromessaPedagio(calcularPedagiosDinamicos(rota.coords,[]),18000);
-    if(resultado.encontrados>0&&resultado.incompletos===0){rota.pedNota='Praças consultadas: '+resultado.detalhes.join(' • ');return resultado.total;}
-    rota.pedNota='Pedágios pendentes: '+(resultado.detalhes.join(' • ')||'nenhuma praça confirmada.')+' Rodovias da rota: '+(rota.roads||[]).join(', ');
-  }catch(e){rota.pedNota='Consulta indisponível. Rodovias da rota: '+(rota.roads||[]).join(', ')+'. Confira as praças e informe o total deste trecho.';}
-  // O catálogo pode conter apenas parte das praças. Não apresentar subtotal como total.
+    const resultado=await limitePromessaPedagio(calcularPedagiosDinamicos(rota.coords,[]),12000);
+    if(resultado.encontrados>0 && resultado.incompletos===0 && Number.isFinite(resultado.total)){
+      // A consulta gratuita é indicativa: sem verificação de sentido/tarifa,
+      // não se deve lançar automaticamente no custo do cliente.
+      rota.pedNota='Consulta indicativa (NÃO CONFIRMADA): '+resultado.detalhes.join(' • ')+'. Confira o sentido e preencha o total do trecho.';
+      return null;
+    }
+    rota.pedNota='Pedágio a confirmar neste trecho. '+(resultado.detalhes?.join(' • ')||'Não foi possível validar todas as praças.')+' Confira a rodovia e o sentido no mapa.';
+  }catch(e){
+    rota.pedNota='Consulta gratuita indisponível. Confira as praças na rota e informe o total deste trecho. Rodovias identificadas: '+(rota.roads||[]).join(', ');
+  }
   return null;
 }
+
 async function seqBuscarRota(){
   const s=seqLer();if(!s||s.pontos.length<2||s.pontos.some(p=>!p.endereco.trim())){showStatus('Preencha todos os endereços da sequência.','warn');return;}
   if(!s.pontos.slice(1).some(p=>p.tipo==='cliente')){showStatus('Marque pelo menos um trecho Com cliente.','warn');return;}
