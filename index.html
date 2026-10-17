@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="MICHELON">
-<title>Michelon Viagens Executivas • V61 TESTE — consulta de pedágios</title>
+<title>Michelon Viagens Executivas • V62 TESTE — consulta de pedágios</title>
 <style>
 :root{--bg:#f8fafc;--card:#fff;--text:#0f172a;--muted:#64748b;--line:#e2e8f0;--primary:#0f766e;--primary2:#115e59;--ok:#166534;--warn:#92400e;--danger:#b91c1c}
 *{box-sizing:border-box}
@@ -2365,24 +2365,34 @@ async function detectarPedagiosTrecho(coords){
   );
   out center tags;`;
 
-  // Servidores públicos alternativos: indisponibilidade de um não encerra a busca.
+  // V62: consultas paralelas, com POST e GET de reserva.
+  // Evita gastar 9 segundos em cada servidor antes de tentar o seguinte.
   const servidores=[
     'https://overpass.kumi.systems/api/interpreter',
-    'https://overpass.nchc.org.tw/api/interpreter',
     'https://overpass-api.de/api/interpreter',
-    'https://overpass.private.coffee/api/interpreter'
+    'https://overpass.nchc.org.tw/api/interpreter'
   ];
-
-  let els=[],consultou=false;
-  for(const base of servidores){
+  const consultar=async base=>{
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),10500);
     try{
-      const r=await fetchTimeout(base+'?data='+encodeURIComponent(q),6500);
-      if(!r.ok)continue;
+      let r;
+      try{
+        r=await fetch(base,{method:'POST',body:new URLSearchParams({data:q}),signal:controller.signal});
+      }catch(e){
+        r=await fetch(base+'?data='+encodeURIComponent(q),{signal:controller.signal});
+      }
+      if(!r.ok)throw new Error('HTTP '+r.status);
       const j=await r.json();
-      els=j.elements||[];consultou=true;
-      break;
-    }catch(e){}
-  }
+      if(!Array.isArray(j.elements))throw new Error('Resposta inválida');
+      return j.elements;
+    }finally{clearTimeout(timer)}
+  };
+  let els=[],consultou=false;
+  try{
+    els=await Promise.any(servidores.map(consultar));
+    consultou=true;
+  }catch(e){}
 
   if(!consultou)throw new Error('Consulta de praças indisponível.');
   const unicos=[];
@@ -5193,7 +5203,7 @@ async function seqPedagiosTrecho(origem,destino,rota){
   try{
     const resultado=await limitePromessaPedagio(calcularPedagiosDinamicos(rota.coords,[]),18000);
     if(resultado.encontrados>0&&resultado.incompletos===0){rota.pedNota='Praças consultadas: '+resultado.detalhes.join(' • ');return resultado.total;}
-    rota.pedNota='Consulta automática não confirmou todas as praças e tarifas. Pedágios pendentes: '+(resultado.detalhes.join(' • ')||'nenhuma praça confirmada.')+' Rodovias da rota: '+(rota.roads||[]).join(', ');
+    rota.pedNota='Pedágios pendentes: '+(resultado.detalhes.join(' • ')||'nenhuma praça confirmada.')+' Rodovias da rota: '+(rota.roads||[]).join(', ');
   }catch(e){rota.pedNota='Consulta indisponível. Rodovias da rota: '+(rota.roads||[]).join(', ')+'. Confira as praças e informe o total deste trecho.';}
   // O catálogo pode conter apenas parte das praças. Não apresentar subtotal como total.
   return null;
