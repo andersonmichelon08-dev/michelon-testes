@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="MICHELON">
-<title>Michelon Viagens Executivas • V63 TESTE — conferência de pedágios</title>
+<title>Michelon Viagens Executivas • V64 TESTE — consulta de pedágios</title>
 <style>
 :root{--bg:#f8fafc;--card:#fff;--text:#0f172a;--muted:#64748b;--line:#e2e8f0;--primary:#0f766e;--primary2:#115e59;--ok:#166534;--warn:#92400e;--danger:#b91c1c}
 *{box-sizing:border-box}
@@ -1234,7 +1234,6 @@ async function compartilharCartao(){
     <div class="hint">A alteração atualiza a margem usada no cálculo. Recalcule o orçamento para conferir o preço.</div>
   </div>
   <button type="button" class="primary seq-ok" id="seqCalcular" onclick="buscarTudo()">Calcular valor</button>
-  <button type="button" class="secondary" style="margin-top:8px;font-size:12px" onclick="michelonConfigurarPedagios()">⚙️ Configurar API de pedágios (uma vez)</button>
 </section>
 <div id="viagemOrigem" class="citywrap seq-legado"><label>Origem</label><input id="origem" autocomplete="off" placeholder="Rua, cidade, aeroporto, hotel ou local..."><div id="listaOrigem" class="citylist"></div><div class="cityhelp">Ex.: Rua + número, cidade, aeroporto, hotel ou empresa.</div><div class="grid" style="margin-top:7px"><div><label>CEP da origem (opcional)</label><input id="cepOrigem" inputmode="numeric" placeholder="00000-000"></div><div><label>Número</label><input id="numOrigem" inputmode="numeric" placeholder="Ex.: 366"></div></div></div>
       <div id="viagemDestino" class="citywrap seq-legado"><label>Destino</label><input id="destino" autocomplete="off" placeholder="Rua, cidade, aeroporto, hotel ou local..."><div id="listaDestino" class="citylist"></div><div class="cityhelp">Se o mapa não achar pelo nome, informe CEP + número.</div><div class="grid" style="margin-top:7px"><div><label>CEP do destino (opcional)</label><input id="cepDestino" inputmode="numeric" placeholder="00000-000"></div><div><label>Número</label><input id="numDestino" inputmode="numeric" placeholder="Ex.: 100"></div></div></div>
@@ -2366,23 +2365,39 @@ async function detectarPedagiosTrecho(coords){
   );
   out center tags;`;
 
+  // V64: consulta redundante sem aceitar resposta vazia como prova de ausência.
+  // Os servidores públicos podem retornar dados incompletos; preservamos
+  // o estado "não confirmado" quando não há praças verificáveis.
   const servidores=[
+    'https://overpass.kumi.systems/api/interpreter',
     'https://overpass-api.de/api/interpreter',
-    'https://overpass.kumi.systems/api/interpreter'
+    'https://overpass.nchc.org.tw/api/interpreter'
   ];
-
-  let els=[],consultou=false;
-  for(const base of servidores){
+  const consultar=async base=>{
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),10500);
     try{
-      const r=await fetchTimeout(base+'?data='+encodeURIComponent(q),9000);
-      if(!r.ok)continue;
+      let r;
+      try{
+        r=await fetch(base,{method:'POST',body:new URLSearchParams({data:q}),signal:controller.signal});
+      }catch(e){
+        r=await fetch(base+'?data='+encodeURIComponent(q),{signal:controller.signal});
+      }
+      if(!r.ok)throw new Error('HTTP '+r.status);
       const j=await r.json();
-      els=j.elements||[];consultou=true;
-      break;
-    }catch(e){}
-  }
-
+      if(!Array.isArray(j.elements))throw new Error('Resposta inválida');
+      return j.elements;
+    }finally{clearTimeout(timer)}
+  };
+  // A primeira resposta COM praças vence; uma resposta vazia não interrompe
+  // a busca. Se todas falharem, informar indisponibilidade claramente.
+  let els=[],consultou=false;
+  const resultados=await Promise.allSettled(servidores.map(consultar));
+  const respostas=resultados.filter(x=>x.status==='fulfilled').map(x=>x.value);
+  consultou=respostas.length>0;
   if(!consultou)throw new Error('Consulta de praças indisponível.');
+  // Une respostas para evitar perda de praças quando um espelho está incompleto.
+  els=respostas.flat();
   const unicos=[];
   for(const e of els){
     const lat=e.lat??e.center?.lat, lon=e.lon??e.center?.lon;
@@ -5183,39 +5198,7 @@ function seqPedagioLimeiraSaoPaulo(origem,destino,rota){
   // Nova Odessa/Sumaré + Valinhos/Itupeva + Perus/Caieiras: uma praça por grupo.
   return Number((12.80+14.30+14.50).toFixed(2));
 }
-// V63: fonte profissional opcional, acessada por servidor intermediário com chave protegida.
-async function michelonPedagioAPI(rota){
-  const endpoint=(localStorage.getItem('michelon_toll_proxy_v63')||'').trim();
-  if(!/^https:\/\/[^\s]+$/i.test(endpoint))return null;
-  const coords=rota.coords||[];
-  if(coords.length<2)throw new Error('Rota sem geometria');
-  const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),22000);
-  try{
-    const r=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({polyline:coords,ordem:'lnglat',veiculo:{tipo:'carro',eixos:2}}),signal:controller.signal});
-    const j=await r.json();
-    if(!r.ok||j.ok!==true||typeof j.valor!=='number'||!Number.isFinite(j.valor)||j.valor<0)throw new Error(j.erro||'Resposta inválida');
-    return j;
-  }finally{clearTimeout(timer)}
-}
-function michelonConfigurarPedagios(){
-  const atual=localStorage.getItem('michelon_toll_proxy_v63')||'';
-  const novo=prompt('Endereço HTTPS do servidor de pedágios (não cole sua chave de API aqui). Deixe vazio para desativar:',atual);
-  if(novo===null)return;
-  if(novo.trim()&&!/^https:\/\/[^\s]+$/i.test(novo.trim())){alert('Use um endereço HTTPS válido.');return;}
-  if(novo.trim())localStorage.setItem('michelon_toll_proxy_v63',novo.trim());
-  else localStorage.removeItem('michelon_toll_proxy_v63');
-  alert(novo.trim()?'Servidor configurado. O cálculo usará a API automaticamente.':'Servidor desativado.');
-}
 async function seqPedagiosTrecho(origem,destino,rota){
-  if(localStorage.getItem('michelon_toll_proxy_v63')){
-    try{
-      const api=await michelonPedagioAPI(rota);
-      if(api){rota.pedNota='Pedágios consultados por API: '+(api.detalhes||[]).join(' • ');return api.valor;}
-    }catch(e){rota.pedNota='API de pedágios indisponível: '+String(e.message||e)+'.';return null;}
-  }
-
   const conhecido=pedagioSaoPauloAtibaia(origem,destino,rota.roads||[]);
   if(conhecido!==null){rota.pedNota='Estimativa Mairiporã / Fernão Dias: R$ 3,70 por passagem (ANTT, maio/2026).';return conhecido;}
   const autoban=seqPedagioLimeiraSaoPaulo(origem,destino,rota);
