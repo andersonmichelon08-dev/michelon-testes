@@ -3287,7 +3287,7 @@ async function recalcularOrcamento(){
     if($('litros')) $('litros').textContent=litros.toFixed(1)+' L';
     if($('cComb')) $('cComb').textContent=precoLitro>0?brl(comb):'Informe R$/L';
     if($('cPed')) $('cPed').textContent=brl(pedagios);
-    if($('custoTotal')) $('custoTotal').textContent=brl(custo);
+    if($('custoTotal')) $('custoTotal').textContent=brl(custo)+(pedagioPendente?' (PARCIAL)':'');
     if($('precoFinal')) $('precoFinal').textContent=brl(preco);
     if($('porPass')) $('porPass').textContent=brl(porPass);
 
@@ -3331,8 +3331,8 @@ function calcular(autosave=true){
   $('cPed').textContent=pedagioPendente?'Não confirmado':brl(pedagios);
   $('custoTotal').textContent=brl(custo);
   if($('valorKmView')) $('valorKmView').textContent=brl(valorKm)+'/km';
-  $('precoFinal').textContent=brl(preco);
-  $('porPass').textContent=brl(porPass);
+  $('precoFinal').textContent=brl(preco)+(pedagioPendente?' (PARCIAL)':'');
+  $('porPass').textContent=brl(porPass)+(pedagioPendente?' (PARCIAL)':'');
 
   const aviso=$('calcAviso');
   if(aviso){
@@ -5296,10 +5296,30 @@ function mxPedagioRegionalV72(origem,destino,rota){
  rota.pedNota='ESTIMATIVA NÃO CONFIRMADA — praça Nova Odessa, SP-330 km 118: R$ 12,80 por passagem (carro, referência julho/2026). Fonte: ARTESP / concessionária AutoBAn. Confira o trajeto e a tarifa antes de enviar ao cliente.';
  return 12.80;
 }
+// V73: identificar o retorno pelo par de pontos da mesma sequência, não apenas pelo texto
+// do endereço (o aeroporto pode aparecer como Rua Exportação no geocodificador).
+function mxPedagioRegionalV73(origem,destino,rota){
+ const direto=mxPedagioRegionalV72(origem,destino,rota);
+ if(direto!==null)return direto;
+ const n=mxTollNorm, a=n(origem),b=n(destino);
+ const roads=(rota.roads||[]).map(n).join(' | ');
+ const viaAnhanguera=/anhanguera|sp 330|br 050/.test(roads);
+ const viaBandeirantes=/bandeirantes|sp 348/.test(roads);
+ if(!viaAnhanguera||viaBandeirantes||!(rota.km>=58&&rota.km<=80))return null;
+ const sequencia=seqLer();
+ if(!sequencia||!Array.isArray(sequencia.pontos)||sequencia.pontos.length!==3)return null;
+ const [base,terminal,retorno]=sequencia.pontos.map(p=>n(p.endereco));
+ const ehLimeira=x=>/\blimeira\b/.test(x);
+ const ehAeroporto=x=>/viracopos|aeroporto internacional de campinas|aeroporto de campinas|terminal 1|rua exportacao/.test(x);
+ // Apenas retorno explícito ao mesmo endereço de origem, depois de Viracopos.
+ if(!ehLimeira(base)||!ehAeroporto(terminal)||base!==retorno||a!==terminal||b!==retorno)return null;
+ rota.pedNota='ESTIMATIVA A CONFERIR — retorno pela Anhanguera (SP-330), praça Nova Odessa km 118, R$ 12,80 (referência julho/2026, carro). Confira se o percurso cruza a praça e se a tarifa continua vigente.';
+ return 12.80;
+}
 async function seqPedagiosTrecho(origem,destino,rota){
   const salvo=mxTollLookup(origem,destino,rota.km);
   if(salvo!==null){rota.pedNota='Valor reutilizado de orçamento confirmado anteriormente neste navegador (até 90 dias). Verifique mudanças de tarifa ou rota.';return salvo;}
-  const regional=mxPedagioRegionalV72(origem,destino,rota);
+  const regional=mxPedagioRegionalV73(origem,destino,rota);
   if(regional!==null)return regional;
   const conhecido=pedagioSaoPauloAtibaia(origem,destino,rota.roads||[]);
   if(conhecido!==null){rota.pedNota='Estimativa Mairiporã / Fernão Dias: R$ 3,70 por passagem (ANTT, maio/2026).';return conhecido;}
