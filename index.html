@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="MICHELON">
-<title>Michelon Viagens Executivas • V60 TESTE — conferência de pedágios</title>
+<title>Michelon Viagens Executivas • V61 TESTE — consulta de pedágios</title>
 <style>
 :root{--bg:#f8fafc;--card:#fff;--text:#0f172a;--muted:#64748b;--line:#e2e8f0;--primary:#0f766e;--primary2:#115e59;--ok:#166534;--warn:#92400e;--danger:#b91c1c}
 *{box-sizing:border-box}
@@ -2365,15 +2365,18 @@ async function detectarPedagiosTrecho(coords){
   );
   out center tags;`;
 
+  // Servidores públicos alternativos: indisponibilidade de um não encerra a busca.
   const servidores=[
+    'https://overpass.kumi.systems/api/interpreter',
+    'https://overpass.nchc.org.tw/api/interpreter',
     'https://overpass-api.de/api/interpreter',
-    'https://overpass.kumi.systems/api/interpreter'
+    'https://overpass.private.coffee/api/interpreter'
   ];
 
   let els=[],consultou=false;
   for(const base of servidores){
     try{
-      const r=await fetchTimeout(base+'?data='+encodeURIComponent(q),9000);
+      const r=await fetchTimeout(base+'?data='+encodeURIComponent(q),6500);
       if(!r.ok)continue;
       const j=await r.json();
       els=j.elements||[];consultou=true;
@@ -5190,7 +5193,7 @@ async function seqPedagiosTrecho(origem,destino,rota){
   try{
     const resultado=await limitePromessaPedagio(calcularPedagiosDinamicos(rota.coords,[]),18000);
     if(resultado.encontrados>0&&resultado.incompletos===0){rota.pedNota='Praças consultadas: '+resultado.detalhes.join(' • ');return resultado.total;}
-    rota.pedNota='Pedágios pendentes: '+(resultado.detalhes.join(' • ')||'nenhuma praça confirmada.')+' Rodovias da rota: '+(rota.roads||[]).join(', ');
+    rota.pedNota='Consulta automática não confirmou todas as praças e tarifas. Pedágios pendentes: '+(resultado.detalhes.join(' • ')||'nenhuma praça confirmada.')+' Rodovias da rota: '+(rota.roads||[]).join(', ');
   }catch(e){rota.pedNota='Consulta indisponível. Rodovias da rota: '+(rota.roads||[]).join(', ')+'. Confira as praças e informe o total deste trecho.';}
   // O catálogo pode conter apenas parte das praças. Não apresentar subtotal como total.
   return null;
