@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="MICHELON">
-<title>Michelon Viagens Executivas • V64 TESTE — consulta de pedágios</title>
+<title>Michelon Viagens Executivas • V71 TESTE — limpeza da cotação</title>
 <style>
 :root{--bg:#f8fafc;--card:#fff;--text:#0f172a;--muted:#64748b;--line:#e2e8f0;--primary:#0f766e;--primary2:#115e59;--ok:#166534;--warn:#92400e;--danger:#b91c1c}
 *{box-sizing:border-box}
@@ -5072,6 +5072,46 @@ function mxTollLookup(a,b,km){
  if(!item.em||Date.now()-new Date(item.em).getTime()>90*86400000)return null;
  return +item.ped;
 }
+// V71: migração única do valor fictício persistido na cotação aberta.
+// Não apaga tarifas de outras rotas nem dados de outras áreas do aplicativo.
+function mxV71LimparCotacaoTeste(){
+ try{
+  const flag='michelon_v71_limpeza_teste_68_9';
+  if(localStorage.getItem(flag)==='1')return;
+  const suspeito=(a,b,p)=>{
+   if(Math.abs(Number(p?.ped)-10)>0.001||Math.abs(Number(p?.km)-68.9)>0.2)return false;
+   const txt=mxTollNorm(String(a||'')+' '+String(b||''));
+   return txt.includes('limeira')&&(txt.includes('viracopos')||txt.includes('campinas')||txt.includes('13054 709')||txt.includes('regiao sudeste'));
+  };
+  const limpar=(s)=>{
+   if(!s||!Array.isArray(s.pontos))return false;
+   let alterou=false;
+   for(let i=1;i<s.pontos.length;i++){
+    const p=s.pontos[i],a=s.pontos[i-1];
+    if(suspeito(a.endereco,p.endereco,p)){
+     p.ped='';delete p.pedNota;alterou=true;
+    }
+   }
+   return alterou;
+  };
+  const campo=seqEl('seqDados');
+  if(campo?.value){try{const s=JSON.parse(campo.value);if(limpar(s))campo.value=JSON.stringify(s)}catch(e){}}
+  const draftKey='michelon_cotacao_atual_v39';
+  try{
+   const d=JSON.parse(localStorage.getItem(draftKey)||'null');
+   if(d?.campos?.seqDados){
+    const sd=JSON.parse(d.campos.seqDados);
+    if(limpar(sd)){d.campos.seqDados=JSON.stringify(sd);localStorage.setItem(draftKey,JSON.stringify(d));}
+   }
+  }catch(e){}
+  const db=mxTollRead();let mudou=false;
+  for(const [k,item] of Object.entries(db)){
+   if(suspeito(k,'',item)){delete db[k];mudou=true;}
+  }
+  if(mudou)localStorage.setItem(MX_TOLL_CACHE_KEY,JSON.stringify(db));
+  localStorage.setItem(flag,'1');
+ }catch(e){console.warn('Limpeza de pedágio de teste pendente',e)}
+}
 function seqInvalidar(s){seqConsulta++;delete s.sec;for(let i=1;i<s.pontos.length;i++){s.pontos[i].km='';s.pontos[i].ped='';delete s.pontos[i].pedNota;}}
 function seqEditar(i,campo,valor){
   const s=seqLer();if(!s||!s.pontos[i])return;
@@ -5324,6 +5364,7 @@ async function seqBuscarRota(){
   };
   document.addEventListener('DOMContentLoaded',function(){
     seqPronta=true;
+    mxV71LimparCotacaoTeste();
     if(!seqLer())seqGuardar(seqMigrar(true),false);
     seqUltimoJSON=seqValor('seqDados');seqRender();calcular(false);
     seqEl('modoCotacao')?.addEventListener('change',()=>{seqAjustarTela();calcular(false)});
