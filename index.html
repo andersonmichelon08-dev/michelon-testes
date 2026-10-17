@@ -5367,14 +5367,12 @@ const MX_V81_PRAÇAS_AUTOBAN=[
 // As coordenadas abaixo são pontos de referência aproximados do catálogo
 // existente, e NÃO substituem a verificação da praça e sentido.
 function mxV82DiagnosticoGeometria(rota){
- const coords=rota.coords||[];
- if(coords.length<2)return 'Traçado da rota indisponível para cruzar com o catálogo.';
+ const coords=Array.isArray(rota.coords)?rota.coords:[];
+ if(coords.length<2)return 'DIAGNÓSTICO V83: SEM GEOMETRIA DA ROTA (0 ou 1 ponto).';
  const candidatos=PEDAGIOS_CATALOGO.filter(p=>p.rodovia==='SP-348').map(p=>({p,dist:distKmPontoRota(p,coords)})).sort((a,b)=>a.dist-b.dist);
+ const fmt=x=>x.p.nome+' '+(Number.isFinite(x.dist)?x.dist.toFixed(2).replace('.',',')+' km':'distância indisponível');
  const perto=candidatos.filter(x=>x.dist<=2.2);
- const fmt=x=>x.p.nome+' (aprox. '+x.dist.toFixed(1).replace('.',',')+' km do traçado)';
- return 'ANÁLISE GEOMÉTRICA EXPERIMENTAL: '+(perto.length?perto.map(fmt).join(' • '):'nenhum ponto do catálogo SP-348 está a até 2,2 km do traçado')+'. '+
- 'Pontos avaliados: '+candidatos.map(fmt).join(' • ')+'. '+
- 'A proximidade NÃO comprova travessia, praça, sentido ou tarifa. Pedágio permanece pendente.';
+ return 'DIAGNÓSTICO V83 — '+coords.length+' pontos no traçado; referências Bandeirantes a até 2,2 km: '+(perto.length?perto.map(fmt).join(' / '):'nenhuma')+'; distâncias de TODOS os pontos cadastrados: '+(candidatos.length?candidatos.map(fmt).join(' / '):'nenhum ponto cadastrado')+'. ATENÇÃO: proximidade não comprova travessia nem autoriza cobrança.';
 }
 function mxV81NotaGuarulhos(origem,destino,rota){
  const n=mxTollNorm;
@@ -5384,12 +5382,13 @@ function mxV81NotaGuarulhos(origem,destino,rota){
  if(!/guarulhos|helio smidt|gru|aeroporto internacional de sao paulo/.test(texto+' '+vias) || !/bandeirantes|sp 348/.test(vias))return '';
  const lista=MX_V81_PRAÇAS_AUTOBAN.filter(p=>p.rodovia.includes('Bandeirantes'));
  const geometria=mxV82DiagnosticoGeometria(rota);
- return 'REFERÊNCIA OFICIAL AUTOBAN (01/07/2026), NÃO SOMADA: '+lista.map(p=>p.nome+' km '+p.km+' R$ '+p.valor.toFixed(2).replace('.',',')).join(' • ')+'. '+geometria+' ATENÇÃO: são possíveis praças do corredor, NÃO uma lista de praças atravessadas. Identifique no mapa as praças efetivas de CADA sentido e preencha o total manualmente. Fonte: '+SEQ_FONTE_AUTOBAN;
+ return geometria+' REFERÊNCIA OFICIAL AUTOBAN (01/07/2026), NÃO SOMADA: '+lista.map(p=>p.nome+' km '+p.km+' R$ '+p.valor.toFixed(2).replace('.',',')).join(' • ')+'. ATENÇÃO: são possíveis praças do corredor, NÃO uma lista de praças atravessadas. Identifique no mapa as praças efetivas de CADA sentido e preencha o total manualmente. Fonte: '+SEQ_FONTE_AUTOBAN;
 }
 async function seqPedagiosTrecho(origem,destino,rota){
   const regional=mxV77PedagioBandeirantes(origem,destino,rota);
   if(regional!==null)return regional;
   const notaGuarulhos=mxV81NotaGuarulhos(origem,destino,rota);
+  if(notaGuarulhos){rota.pedNota=notaGuarulhos;return null;} // V83: diagnóstico local imediato; sem consulta pública inconclusiva
   const salvo=notaGuarulhos?null:mxTollLookup(origem,destino,rota.km);
   if(salvo!==null){
     rota.pedNota='Valor informado anteriormente neste navegador para este trecho. Confira se a tarifa e o caminho continuam iguais.';
