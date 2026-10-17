@@ -4949,13 +4949,16 @@ function seqValor(id){return String(seqEl(id)?.value||'').trim()}
 function seqAtiva(){return seqPronta&&!seqSuspensa&&seqValor('modoCotacao')!=='urbano'}
 function seqLer(){try{const s=JSON.parse(seqValor('seqDados')||'null');return s&&s.v===1&&Array.isArray(s.pontos)?s:null}catch(e){return null}}
 function seqCriarPonto(endereco='',tipo='cliente',km='',ped=''){return {endereco:String(endereco),tipo:tipo==='motorista'?'motorista':'cliente',km:km===''?'':Math.max(0,Number(km)||0),ped:ped===''?'':Math.max(0,Number(ped)||0)}}
+function mxMesmoEndereco(a,b){return String(a||'').trim().toLowerCase()===String(b||'').trim().toLowerCase()}
 function seqMigrar(incluirBase=false){
   const origem=seqValor('origem'),destino=seqValor('destino');
   const pontos=[seqCriarPonto(origem),seqCriarPonto(destino)];
-  if(seqValor('idaVolta')==='sim'&&origem&&destino){
+  // O retorno à origem faz parte do custo operacional mesmo na viagem só de ida.
+  // 'Sim' = retorno com cliente; 'Não' = retorno vazio do motorista.
+  if(origem&&destino&&mxMesmoEndereco(origem,destino)===false){
     const ro=seqValor('origemRetorno')||destino,rd=seqValor('destinoRetorno')||origem;
-    if(ro!==destino)pontos.push(seqCriarPonto(ro,'motorista'));
-    pontos.push(seqCriarPonto(rd));
+    if(!mxMesmoEndereco(ro,destino))pontos.push(seqCriarPonto(ro,'motorista'));
+    pontos.push(seqCriarPonto(rd,seqValor('idaVolta')==='sim'?'cliente':'motorista'));
   }
   const opBase=seqValor('opBase')||'Limeira, SP';
   if(incluirBase&&origem&&destino&&seqValor('opAtivo')==='sim'){
@@ -5308,22 +5311,20 @@ async function seqBuscarRota(){
     seqEl('idaVolta')?.addEventListener('change',function(){
       if(!seqAtiva())return;
       const s=seqLer();if(!s||s.pontos.length<2)return;
-      if(this.value==='sim'){
-        const legs=s.pontos.slice(1).map((p,j)=>({p,a:s.pontos[j]})).filter(x=>x.p.tipo==='cliente');
-        if(legs.length===1){
-          const lastIndex=s.pontos.indexOf(legs[0].p);
-          s.pontos.splice(lastIndex+1,0,seqCriarPonto(legs[0].a.endereco));
-          seqInvalidar(s);seqGuardar(s,true);calcular(false);seqPersistir();
-        }
-      }else{
-        // Apenas ida: retirar o retorno automático se ele for exatamente o
-        // caminho inverso do único trecho de cliente. Preservar paradas extras.
-        if(s.pontos.length===3 && s.pontos[1].tipo==='cliente' &&
-           s.pontos[2].tipo==='cliente' &&
-           s.pontos[2].endereco.trim().toLowerCase()===s.pontos[0].endereco.trim().toLowerCase()){
-          s.pontos.pop();seqInvalidar(s);seqGuardar(s,true);calcular(false);seqPersistir();
+      // Alternar o tipo de retorno sem acrescentar/excluir quilômetros.
+      // A ida continua sendo um trecho com cliente.
+      const origem=s.pontos[0].endereco;
+      const ultima=s.pontos[s.pontos.length-1];
+      if(origem && !mxMesmoEndereco(origem,s.pontos[1].endereco)){
+        if(s.pontos.length===2){
+          s.pontos.push(seqCriarPonto(origem,this.value==='sim'?'cliente':'motorista'));
+          seqInvalidar(s);
+        }else if(mxMesmoEndereco(ultima.endereco,origem)){
+          ultima.tipo=this.value==='sim'?'cliente':'motorista';
+          seqConsulta++;
         }
       }
+      seqGuardar(s,true);calcular(false);seqPersistir();
     });
     // Intercept before the existing WhatsApp listener prepares its link.
     seqEl('whats')?.addEventListener('click',e=>{
@@ -5631,6 +5632,30 @@ setTimeout(run,2500);
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',iniciar);
  else iniciar();
+})();
+</script>
+
+<script id="michelon-v68-margem-automatica">
+(function(){
+  function iniciar(){
+    const tipo=document.getElementById('idaVolta');
+    const margem=document.getElementById('margem');
+    const visivel=document.getElementById('margemRapidaV60');
+    if(!tipo||!margem)return;
+    function aplicar(){
+      const percentual=tipo.value==='nao'?'50':'25';
+      margem.value=percentual;
+      if(visivel)visivel.value=percentual;
+      margem.dispatchEvent(new Event('input',{bubbles:true}));
+      margem.dispatchEvent(new Event('change',{bubbles:true}));
+    }
+    // Mudança de modalidade restaura a margem padrão; depois ela pode ser editada.
+    tipo.addEventListener('change',aplicar);
+    // O seletor começa em Sim: 25%. Para cotações recuperadas, respeita a modalidade atual.
+    aplicar();
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',iniciar);
+  else iniciar();
 })();
 </script>
 </body>
