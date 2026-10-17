@@ -5345,8 +5345,10 @@ function mxV77PedagioBandeirantes(origem,destino,rota){
  const vias=(rota.roads||[]).map(n).join(' | ');
  const bandeirantes=/bandeirantes|sp[ -]?348/.test(vias);
  const anhanguera=/anhanguera|sp[ -]?330|br[ -]?050/.test(vias);
- if(!(parDireto||retornoDaSequencia||idaDaSequencia)||!bandeirantes||anhanguera||!(rota.km>=58&&rota.km<=82))return null;
- rota.pedNota='ESTIMATIVA A VALIDAR: R$ 12,80 (praça Sumaré, Bandeirantes SP-348, referência concessionária 01/07/2026). Confirme no mapa se este trecho cruza a praça. Não é tarifa automaticamente confirmada.';
+ // V78: a rota pode incluir acessos pela Anhanguera e seguir pela Bandeirantes.
+ // Não rejeitar a Bandeirantes só porque ambas aparecem na lista de vias.
+ if(!(parDireto||retornoDaSequencia||idaDaSequencia)||!bandeirantes||!(rota.km>=58&&rota.km<=82))return null;
+ rota.pedNota='ESTIMATIVA NÃO CONFIRMADA: R$ 12,80 (praça Sumaré, Bandeirantes SP-348, referência concessionária 01/07/2026). A rota menciona Bandeirantes, mas a passagem pela praça e o sentido ainda precisam ser conferidos antes de enviar o preço.';
  return 12.80;
 }
 async function seqPedagiosTrecho(origem,destino,rota){
