@@ -5280,9 +5280,27 @@ function seqPedagioLimeiraSaoPaulo(origem,destino,rota){
   // Nova Odessa/Sumaré + Valinhos/Itupeva + Perus/Caieiras: uma praça por grupo.
   return Number((12.80+14.30+14.50).toFixed(2));
 }
+// V72 — base gratuita, regional e conservadora. Não representa consulta em tempo real.
+// Nova Odessa, SP-330 km 118, tarifa publicada para automóvel em julho/2026.
+// Somente trecho direto Limeira <-> Aeroporto de Viracopos, via Anhanguera.
+function mxPedagioRegionalV72(origem,destino,rota){
+ const n=mxTollNorm;
+ const a=n(origem),b=n(destino),j=a+' '+b;
+ const limeira=x=>/\blimeira\b/.test(x);
+ const aeroporto=x=>/viracopos|aeroporto internacional de campinas|aeroporto de campinas|terminal 1/.test(x);
+ const corredor=(limeira(a)&&aeroporto(b))||(limeira(b)&&aeroporto(a));
+ const roads=(rota.roads||[]).map(n).join(' | ');
+ const anhanguera=/anhanguera|sp 330|br 050/.test(roads);
+ const alternativa=/bandeirantes|sp 348/.test(roads);
+ if(!corredor||!anhanguera||alternativa||!(rota.km>=58&&rota.km<=80))return null;
+ rota.pedNota='ESTIMATIVA NÃO CONFIRMADA — praça Nova Odessa, SP-330 km 118: R$ 12,80 por passagem (carro, referência julho/2026). Fonte: ARTESP / concessionária AutoBAn. Confira o trajeto e a tarifa antes de enviar ao cliente.';
+ return 12.80;
+}
 async function seqPedagiosTrecho(origem,destino,rota){
   const salvo=mxTollLookup(origem,destino,rota.km);
   if(salvo!==null){rota.pedNota='Valor reutilizado de orçamento confirmado anteriormente neste navegador (até 90 dias). Verifique mudanças de tarifa ou rota.';return salvo;}
+  const regional=mxPedagioRegionalV72(origem,destino,rota);
+  if(regional!==null)return regional;
   const conhecido=pedagioSaoPauloAtibaia(origem,destino,rota.roads||[]);
   if(conhecido!==null){rota.pedNota='Estimativa Mairiporã / Fernão Dias: R$ 3,70 por passagem (ANTT, maio/2026).';return conhecido;}
   const autoban=seqPedagioLimeiraSaoPaulo(origem,destino,rota);
