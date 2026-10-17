@@ -2412,7 +2412,7 @@ async function detectarPedagiosTrecho(coords){
     const lat=e.lat??e.center?.lat, lon=e.lon??e.center?.lon;
     if(lat==null||lon==null)continue;
     const p={...e,lat:+lat,lon:+lon};
-    if(!pertoDaRota([p.lon,p.lat],coords,1.6))continue;
+    if(!pertoDaRota([p.lon,p.lat],coords,0.45))continue;
     const dup=unicos.some(u=>Math.hypot((u.lat-p.lat)*110.574,(u.lon-p.lon)*111.320*Math.cos(p.lat*Math.PI/180))<0.25);
     if(!dup)unicos.push(p);
   }
@@ -5364,10 +5364,10 @@ async function seqPedagiosTrecho(origem,destino,rota){
     if(resultado.encontrados>0 && resultado.incompletos===0 && Number.isFinite(resultado.total)){
       // A consulta gratuita é indicativa: sem verificação de sentido/tarifa,
       // não se deve lançar automaticamente no custo do cliente.
-      rota.pedNota='Consulta indicativa (NÃO CONFIRMADA): '+resultado.detalhes.join(' • ')+'. Confira o sentido e preencha o total do trecho.';
+      rota.pedNota='PEDÁGIO PENDENTE — a consulta pública retornou registros próximos, mas não verificou passagem pela praça nem sentido. Nenhuma tarifa foi somada automaticamente. Informe o total deste trecho após conferir a rota.';
       return null;
     }
-    rota.pedNota='Pedágio a confirmar neste trecho. '+(resultado.detalhes?.join(' • ')||'Não foi possível validar todas as praças.')+' Confira a rodovia e o sentido no mapa.';
+    rota.pedNota='PEDÁGIO PENDENTE — a consulta pública encontrou '+resultado.encontrados+' possíveis registros próximos da rota, mas não confirmou praças, sentido e tarifas. Registros repetidos ou de vias paralelas NÃO foram somados. Confira as praças no mapa e informe o total deste trecho manualmente.';
   }catch(e){
     rota.pedNota='Consulta gratuita indisponível. Confira as praças na rota e informe o total deste trecho. Rodovias identificadas: '+(rota.roads||[]).join(', ');
   }
