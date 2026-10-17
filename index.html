@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="MICHELON">
-<title>Michelon Viagens Executivas • V59 TESTE — conferência de pedágios</title>
+<title>Michelon Viagens Executivas • V60 TESTE — conferência de pedágios</title>
 <style>
 :root{--bg:#f8fafc;--card:#fff;--text:#0f172a;--muted:#64748b;--line:#e2e8f0;--primary:#0f766e;--primary2:#115e59;--ok:#166534;--warn:#92400e;--danger:#b91c1c}
 *{box-sizing:border-box}
@@ -1228,6 +1228,11 @@ async function compartilharCartao(){
   <p class="seq-legenda">Os trechos “Só motorista” entram no preço e ficam ocultos do cliente.</p>
   <input id="seqDados" type="hidden" value="">
   <div id="seqLista"></div>
+  <div id="margemVisivelV60" style="margin:12px 0;padding:12px;border:1px solid #b8dcd5;border-radius:12px;background:#effaf7">
+    <label for="margemRapidaV60" style="font-weight:800">Margem de lucro (%) — ajuste aqui</label>
+    <input id="margemRapidaV60" type="number" min="0" step="0.1" value="25" inputmode="decimal" style="max-width:240px!important;background:white" />
+    <div class="hint">A alteração atualiza a margem usada no cálculo. Recalcule o orçamento para conferir o preço.</div>
+  </div>
   <button type="button" class="primary seq-ok" id="seqCalcular" onclick="buscarTudo()">Calcular valor</button>
 </section>
 <div id="viagemOrigem" class="citywrap seq-legado"><label>Origem</label><input id="origem" autocomplete="off" placeholder="Rua, cidade, aeroporto, hotel ou local..."><div id="listaOrigem" class="citylist"></div><div class="cityhelp">Ex.: Rua + número, cidade, aeroporto, hotel ou empresa.</div><div class="grid" style="margin-top:7px"><div><label>CEP da origem (opcional)</label><input id="cepOrigem" inputmode="numeric" placeholder="00000-000"></div><div><label>Número</label><input id="numOrigem" inputmode="numeric" placeholder="Ex.: 366"></div></div></div>
@@ -3506,7 +3511,7 @@ function resumoFinanceiroAtividades(){
 
 </script>
 <footer style="text-align:center;color:#64748b;font-size:13px;padding:22px 10px 34px">
-<strong>MICHELON Viagens Executivas</strong> • Versão 59 TESTE • Atualizado em 17/10/2026 • Financeiro organizado
+<strong>MICHELON Viagens Executivas</strong> • Versão 60 TESTE • Atualizado em 17/10/2026 • Financeiro organizado
 </footer>
 
 <script>
@@ -5564,5 +5569,23 @@ setTimeout(run,2500);
 })();
 </script>
 
+<script id="michelon-margem-visivel-v60">
+(function(){
+ function iniciar(){
+  const original=document.getElementById('margem');
+  const rapido=document.getElementById('margemRapidaV60');
+  if(!original||!rapido)return;
+  rapido.value=original.value;
+  rapido.addEventListener('input',function(){
+   original.value=rapido.value;
+   original.dispatchEvent(new Event('input',{bubbles:true}));
+  });
+  original.addEventListener('input',function(){if(document.activeElement!==rapido)rapido.value=original.value;});
+  original.addEventListener('change',function(){rapido.value=original.value;});
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',iniciar);
+ else iniciar();
+})();
+</script>
 </body>
 </html>
