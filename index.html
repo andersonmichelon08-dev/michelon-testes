@@ -5044,9 +5044,29 @@ function mxTollSave(a,b,km,ped){
  const db=mxTollRead();db[mxTollKey(a,b)]={km:+km,ped:+ped,em:new Date().toISOString()};
  try{localStorage.setItem(MX_TOLL_CACHE_KEY,JSON.stringify(db))}catch(e){}
 }
+// V70: o valor R$ 10,00 usado na simulação Limeira -> Viracopos
+// não é tarifa verificada e não pode continuar como valor memorizado.
+function mxTollLimparTesteConhecido(){
+ try{
+  const db=mxTollRead();let mudou=false;
+  for(const [chave,item] of Object.entries(db)){
+   const nome=mxTollNorm(chave);
+   if(Math.abs(Number(item?.ped)-10)<0.001 && nome.includes('limeira') &&
+      (nome.includes('viracopos')||nome.includes('campinas')||nome.includes('regiao sudeste'))){
+    delete db[chave];mudou=true;
+   }
+  }
+  if(mudou)localStorage.setItem(MX_TOLL_CACHE_KEY,JSON.stringify(db));
+ }catch(e){}
+}
+mxTollLimparTesteConhecido();
 function mxTollLookup(a,b,km){
  const item=mxTollRead()[mxTollKey(a,b)];
  if(!item||!Number.isFinite(+item.km)||!Number.isFinite(+item.ped))return null;
+ // A simulação de R$ 10,00 nunca deve ser reaproveitada nesta rota.
+ const rotaTexto=mxTollNorm(a+' '+b);
+ if(Math.abs(Number(item.ped)-10)<0.001 && rotaTexto.includes('limeira') &&
+    (rotaTexto.includes('viracopos')||rotaTexto.includes('campinas')||rotaTexto.includes('regiao sudeste')))return null;
  if(Math.abs(+item.km-(+km))>Math.max(3,(+km)*.06))return null;
  // Revisão periódica: não aplicar valores armazenados há mais de 90 dias.
  if(!item.em||Date.now()-new Date(item.em).getTime()>90*86400000)return null;
