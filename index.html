@@ -5030,12 +5030,31 @@ function seqPersistir(){
     d.salvoEm=new Date().toISOString();localStorage.setItem(k,JSON.stringify(d));
   }catch(e){}
 }
+// V65 — memória local de pedágios confirmados por trecho.
+// Não inventa tarifas: reaproveita somente valores que o usuário informou.
+const MX_TOLL_CACHE_KEY='michelon_pedagios_confirmados_v65';
+function mxTollNorm(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim()}
+function mxTollKey(a,b){return mxTollNorm(a)+' -> '+mxTollNorm(b)}
+function mxTollRead(){try{return JSON.parse(localStorage.getItem(MX_TOLL_CACHE_KEY)||'{}')}catch(e){return {}}}
+function mxTollSave(a,b,km,ped){
+ if(!a||!b||!Number.isFinite(+km)||!(+km>0)||!Number.isFinite(+ped)||(+ped<0))return;
+ const db=mxTollRead();db[mxTollKey(a,b)]={km:+km,ped:+ped,em:new Date().toISOString()};
+ try{localStorage.setItem(MX_TOLL_CACHE_KEY,JSON.stringify(db))}catch(e){}
+}
+function mxTollLookup(a,b,km){
+ const item=mxTollRead()[mxTollKey(a,b)];
+ if(!item||!Number.isFinite(+item.km)||!Number.isFinite(+item.ped))return null;
+ if(Math.abs(+item.km-(+km))>Math.max(3,(+km)*.06))return null;
+ // Revisão periódica: não aplicar valores armazenados há mais de 90 dias.
+ if(!item.em||Date.now()-new Date(item.em).getTime()>90*86400000)return null;
+ return +item.ped;
+}
 function seqInvalidar(s){seqConsulta++;delete s.sec;for(let i=1;i<s.pontos.length;i++){s.pontos[i].km='';s.pontos[i].ped='';delete s.pontos[i].pedNota;}}
 function seqEditar(i,campo,valor){
   const s=seqLer();if(!s||!s.pontos[i])return;
   if(campo==='endereco'){s.pontos[i].endereco=valor;delete s.pontos[i].local;seqInvalidar(s);document.querySelectorAll('[data-seq-custo]').forEach(e=>e.value='');}
   else if(campo==='tipo'){s.pontos[i].tipo=valor==='motorista'?'motorista':'cliente';seqConsulta++;}
-  else if(campo==='km'||campo==='ped'){s.pontos[i][campo]=valor===''?'':Math.max(0,Number(valor)||0);if(campo==='ped')delete s.pontos[i].pedNota;seqConsulta++;}
+  else if(campo==='km'||campo==='ped'){s.pontos[i][campo]=valor===''?'':Math.max(0,Number(valor)||0);if(campo==='ped'){delete s.pontos[i].pedNota;if(valor!==''&&i>0)mxTollSave(s.pontos[i-1].endereco,s.pontos[i].endereco,s.pontos[i].km,s.pontos[i].ped);}seqConsulta++;}
   seqGuardar(s,campo==='tipo');calcular(false);seqPersistir();
 }
 function seqAdicionar(onde='fim'){
@@ -5199,6 +5218,8 @@ function seqPedagioLimeiraSaoPaulo(origem,destino,rota){
   return Number((12.80+14.30+14.50).toFixed(2));
 }
 async function seqPedagiosTrecho(origem,destino,rota){
+  const salvo=mxTollLookup(origem,destino,rota.km);
+  if(salvo!==null){rota.pedNota='Valor reutilizado de orçamento confirmado anteriormente neste navegador (até 90 dias). Verifique mudanças de tarifa ou rota.';return salvo;}
   const conhecido=pedagioSaoPauloAtibaia(origem,destino,rota.roads||[]);
   if(conhecido!==null){rota.pedNota='Estimativa Mairiporã / Fernão Dias: R$ 3,70 por passagem (ANTT, maio/2026).';return conhecido;}
   const autoban=seqPedagioLimeiraSaoPaulo(origem,destino,rota);
