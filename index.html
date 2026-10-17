@@ -5308,23 +5308,30 @@ async function seqBuscarRota(){
     seqUltimoJSON=seqValor('seqDados');seqRender();calcular(false);
     seqEl('modoCotacao')?.addEventListener('change',()=>{seqAjustarTela();calcular(false)});
     // Keep the existing return date/time controls. The actual return address is a point in the sequence.
-    seqEl('idaVolta')?.addEventListener('change',function(){
+    seqEl('idaVolta')?.addEventListener('change',async function(){
       if(!seqAtiva())return;
       const s=seqLer();if(!s||s.pontos.length<2)return;
-      // Alternar o tipo de retorno sem acrescentar/excluir quilômetros.
-      // A ida continua sendo um trecho com cliente.
       const origem=s.pontos[0].endereco;
+      const destino=s.pontos[1].endereco;
+      if(!origem||!destino||mxMesmoEndereco(origem,destino))return;
+      const tipo=this.value==='sim'?'cliente':'motorista';
       const ultima=s.pontos[s.pontos.length-1];
-      if(origem && !mxMesmoEndereco(origem,s.pontos[1].endereco)){
-        if(s.pontos.length===2){
-          s.pontos.push(seqCriarPonto(origem,this.value==='sim'?'cliente':'motorista'));
-          seqInvalidar(s);
-        }else if(mxMesmoEndereco(ultima.endereco,origem)){
-          ultima.tipo=this.value==='sim'?'cliente':'motorista';
-          seqConsulta++;
-        }
+      // A volta é custo operacional nos dois modos, mesmo sem passageiro.
+      // Se só existe a ida, criar o retorno; se já existe, manter os valores.
+      if(s.pontos.length===2){
+        s.pontos.push(seqCriarPonto(origem,tipo));
+      }else if(mxMesmoEndereco(ultima.endereco,origem)){
+        ultima.tipo=tipo;
+      }else{
+        s.pontos.push(seqCriarPonto(origem,tipo));
       }
-      seqGuardar(s,true);calcular(false);seqPersistir();
+      seqConsulta++;
+      seqGuardar(s,true);
+      calcular(false);
+      seqPersistir();
+      // Só consulta novamente quando há trechos sem quilômetros; não apaga
+      // pedágios confirmados ao alternar entre Sim e Não.
+      if(s.pontos.slice(1).some(p=>p.km===''))await seqBuscarRota();
     });
     // Intercept before the existing WhatsApp listener prepares its link.
     seqEl('whats')?.addEventListener('click',e=>{
@@ -5635,7 +5642,7 @@ setTimeout(run,2500);
 })();
 </script>
 
-<script id="michelon-v68-margem-automatica">
+<script id="michelon-v69-margem-automatica">
 (function(){
   function iniciar(){
     const tipo=document.getElementById('idaVolta');
