@@ -1122,7 +1122,7 @@ window.seqAtiva=function(){return false};
 </div></nav>
 
 <div style="margin:10px 0;padding:10px 12px;border-radius:12px;background:#fff8df;border:1px solid #e4c35a;font-size:13px;">
-  🧪 <strong>Modo de teste V13:</strong> esta versão usa armazenamento próprio da cotação e não deve alterar os dados do seu Financeiro.
+  🧪 <strong>Modo de teste V86 (tarifas separadas):</strong> esta versão usa armazenamento próprio da cotação e não deve alterar os dados do seu Financeiro.
 </div>
 
 <section id="mxHero" aria-label="Painel principal MICHELON">
@@ -1256,8 +1256,8 @@ async function compartilharCartao(){
       <div class="full"><div id="conflitoAgenda" class="alerta"></div></div>
       <div><div>
 <label>Valor de cobrança por km (R$/km)</label>
-<input id="valorKm" type="number" min="0" max="4" step="0.10" inputmode="decimal" placeholder="Ex.: 4,00" oninput="limitarValorKm();calcular(false)" onchange="limitarValorKm();calcular(false)">
-<div class="hint">Escolha em cada orçamento. Máximo: R$ 4,00/km.</div>
+<input id="valorKm" value="3.00" type="number" min="0" max="4" step="0.10" inputmode="decimal" placeholder="Ex.: 4,00" oninput="limitarValorKm();calcular(false)" onchange="limitarValorKm();calcular(false)">
+<div class="hint">Tarifa com passageiro. Retorno vazio: R$ 1,50/km. Máximo: R$ 4,00/km.</div>
 </div>
 <label>Passageiros</label><input id="passageiros" type="number" min="1" value="1"></div>
       <div><label>Ida e volta?</label><select id="idaVolta" onchange="alternarCamposRetorno()"><option value="sim" selected>Sim</option><option value="nao">Não</option></select></div>
@@ -3282,7 +3282,7 @@ async function recalcularOrcamento(){
     const custo=comb+pedagios;
     const margem=n('margem');
     const valorKm=Math.min(4,Math.max(0,n('valorKm')));
-    const base=valorKm>0?(km*valorKm)+pedagios:custo;
+    const base=valorKm>0?michelonBasePorTrechos(km,valorKm,pedagios):custo;
     const preco=base*(1+Math.max(0,margem)/100);
     const passageiros=Math.max(1,n('passageiros'));
     const porPass=preco/passageiros;
@@ -3312,6 +3312,19 @@ async function recalcularOrcamento(){
   }
 }
 
+// V86 TESTE — tarifa por ocupação: km com cliente e retorno vazio.
+// O campo valorKm representa a tarifa COM PASSAGEIRO; a tarifa vazia é fixa em R$1,50/km.
+function michelonBasePorTrechos(kmTotal,tarifaCliente,adicionais){
+  if(typeof seqAtiva==='function' && seqAtiva() && typeof seqTotais==='function'){
+    const t=seqTotais();
+    const cliente=Math.max(0,Number(t.clienteKm)||0);
+    const motorista=Math.max(0,Number(t.motoristaKm)||0);
+    // Conserva eventual distância extra não classificada, tarifada como viagem com cliente.
+    const extra=Math.max(0,kmTotal-cliente-motorista);
+    return (cliente+extra)*tarifaCliente+motorista*1.50+adicionais;
+  }
+  return kmTotal*tarifaCliente+adicionais;
+}
 function calcular(autosave=true){
   const kmBase=n('kmTotalInput'), trecho2=(window.__trecho2||{}), km=kmBase+(Number(trecho2.km)||0)+operacaoTotais().km, consumo=n('consumo'), precoLitro=n('precoComb');
   const litros=consumo>0?km/consumo:0;
@@ -3324,7 +3337,7 @@ function calcular(autosave=true){
   // Primeiro calcula o valor-base da viagem.
   // Se houver valor por km configurado, ele continua sendo usado como base.
   // Depois aplica a Margem / lucro (%) sobre esse valor-base.
-  const basePreco=valorKm>0 ? (km*valorKm)+pedagios+extras : custo;
+  const basePreco=valorKm>0 ? michelonBasePorTrechos(km,valorKm,pedagios+extras) : custo;
   const preco=basePreco*(1+Math.max(0,margem)/100);
   const passageiros=Math.max(1,n('passageiros'));
   const porPass=preco/passageiros;
