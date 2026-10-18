@@ -1122,7 +1122,7 @@ window.seqAtiva=function(){return false};
 </div></nav>
 
 <div style="margin:10px 0;padding:10px 12px;border-radius:12px;background:#fff8df;border:1px solid #e4c35a;font-size:13px;">
-  🧪 <strong>Modo de teste V86 (tarifas separadas):</strong> esta versão usa armazenamento próprio da cotação e não deve alterar os dados do seu Financeiro.
+  🧪 <strong>Modo de teste V87 (preço competitivo experimental):</strong> esta versão usa armazenamento próprio da cotação e não deve alterar os dados do seu Financeiro.
 </div>
 
 <section id="mxHero" aria-label="Painel principal MICHELON">
@@ -1239,7 +1239,7 @@ async function compartilharCartao(){
   <div id="seqLista"></div>
   <div id="margemVisivelV60" style="margin:12px 0;padding:12px;border:1px solid #b8dcd5;border-radius:12px;background:#effaf7">
     <label for="margemRapidaV60" style="font-weight:800">Margem de lucro (%) — ajuste aqui</label>
-    <input id="margemRapidaV60" type="number" min="0" step="0.1" value="25" inputmode="decimal" style="max-width:240px!important;background:white" />
+    <input id="margemRapidaV60" type="number" min="0" step="0.1" value="10" inputmode="decimal" style="max-width:240px!important;background:white" />
     <div class="hint">A alteração atualiza a margem usada no cálculo. Recalcule o orçamento para conferir o preço.</div>
   </div>
   <button type="button" class="primary seq-ok" id="seqCalcular" onclick="buscarTudo()">Calcular valor</button>
@@ -1256,8 +1256,8 @@ async function compartilharCartao(){
       <div class="full"><div id="conflitoAgenda" class="alerta"></div></div>
       <div><div>
 <label>Valor de cobrança por km (R$/km)</label>
-<input id="valorKm" value="3.00" type="number" min="0" max="4" step="0.10" inputmode="decimal" placeholder="Ex.: 4,00" oninput="limitarValorKm();calcular(false)" onchange="limitarValorKm();calcular(false)">
-<div class="hint">Tarifa com passageiro. Retorno vazio: R$ 1,50/km. Máximo: R$ 4,00/km.</div>
+<input id="valorKm" value="2.10" type="number" min="0" max="4" step="0.10" inputmode="decimal" placeholder="Ex.: 4,00" oninput="limitarValorKm();calcular(false)" onchange="limitarValorKm();calcular(false)">
+<div class="hint">Tarifa com passageiro: padrão experimental R$ 2,10/km. Retorno vazio: R$ 1,50/km. Ajustável pelo administrador. Máximo: R$ 4,00/km.</div>
 </div>
 <label>Passageiros</label><input id="passageiros" type="number" min="1" value="1"></div>
       <div><label>Ida e volta?</label><select id="idaVolta" onchange="alternarCamposRetorno()"><option value="sim" selected>Sim</option><option value="nao">Não</option></select></div>
@@ -1302,7 +1302,7 @@ async function compartilharCartao(){
       <div><label>Consumo do veículo (km/l)</label><input id="consumo" type="number" step="0.1" value="10"></div>
       <div><label>Combustível (R$/litro)</label><input id="precoComb" type="number" step="0.01"></div>
       <div class="hint" style="margin-top:8px">ℹ️ O cálculo considera apenas rota/KM, combustível, pedágios e os parâmetros de cobrança definidos.</div>
-      <div><label>Margem / lucro (%)</label><input id="margem" type="number" step="0.1" value="25"></div><div><label>Sinal para reserva (%)</label><input id="sinalPct" type="number" step="1" value="30"></div><div><label>Forma de pagamento</label><select id="formaPg"><option>PIX</option><option>Dinheiro</option><option>Cartão</option><option>Transferência</option></select></div>
+      <div><label>Margem / lucro (%)</label><input id="margem" type="number" step="0.1" value="10"></div><div><label>Sinal para reserva (%)</label><input id="sinalPct" type="number" step="1" value="30"></div><div><label>Forma de pagamento</label><select id="formaPg"><option>PIX</option><option>Dinheiro</option><option>Cartão</option><option>Transferência</option></select></div>
     </div>
   </div>
 
@@ -3312,7 +3312,7 @@ async function recalcularOrcamento(){
   }
 }
 
-// V86 TESTE — tarifa por ocupação: km com cliente e retorno vazio.
+// V87 TESTE — tarifa por ocupação: km com cliente e retorno vazio.
 // O campo valorKm representa a tarifa COM PASSAGEIRO; a tarifa vazia é fixa em R$1,50/km.
 function michelonBasePorTrechos(kmTotal,tarifaCliente,adicionais){
   if(typeof seqAtiva==='function' && seqAtiva() && typeof seqTotais==='function'){
@@ -5852,27 +5852,25 @@ setTimeout(run,2500);
 })();
 </script>
 
-<script id="michelon-v69-margem-automatica">
+<script id="michelon-v87-tarifas-automaticas">
 (function(){
-  function iniciar(){
-    const tipo=document.getElementById('idaVolta');
-    const margem=document.getElementById('margem');
-    const visivel=document.getElementById('margemRapidaV60');
-    if(!tipo||!margem)return;
-    function aplicar(){
-      const percentual=tipo.value==='nao'?'50':'25';
-      margem.value=percentual;
-      if(visivel)visivel.value=percentual;
-      margem.dispatchEvent(new Event('input',{bubbles:true}));
-      margem.dispatchEvent(new Event('change',{bubbles:true}));
-    }
-    // Mudança de modalidade restaura a margem padrão; depois ela pode ser editada.
-    tipo.addEventListener('change',aplicar);
-    // O seletor começa em Sim: 25%. Para cotações recuperadas, respeita a modalidade atual.
-    aplicar();
+ function iniciar(){
+  const tipo=document.getElementById('idaVolta'),margem=document.getElementById('margem');
+  const rapido=document.getElementById('margemRapidaV60'),tarifa=document.getElementById('valorKm');
+  if(!tipo||!margem||!tarifa)return;
+  function aplicar(){
+   // Parâmetros de TESTE, não preço de mercado validado.
+   // Ida/volta com cliente: R$ 3/km nos dois trechos.
+   // Somente ida: R$ 2,10/km na ida e R$ 1,50/km no retorno vazio.
+   tarifa.value=tipo.value==='sim'?'3.00':'2.10';
+   margem.value='10';
+   if(rapido)rapido.value='10';
+   try{calcular(false)}catch(e){console.warn('V87 aguardando rota',e)}
   }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',iniciar);
-  else iniciar();
+  tipo.addEventListener('change',aplicar);
+  aplicar();
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',iniciar);else iniciar();
 })();
 </script>
 
