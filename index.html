@@ -1122,7 +1122,7 @@ window.seqAtiva=function(){return false};
 </div></nav>
 
 <div style="margin:10px 0;padding:10px 12px;border-radius:12px;background:#fff8df;border:1px solid #e4c35a;font-size:13px;">
-  🧪 <strong>Modo de teste V90 (tarifas automáticas — experimental):</strong> esta versão usa armazenamento próprio da cotação e não deve alterar os dados do seu Financeiro.
+  🧪 <strong>Modo de teste V91 (tarifas e conferência — experimental):</strong> esta versão usa armazenamento próprio da cotação e não deve alterar os dados do seu Financeiro.
 </div>
 
 <section id="mxHero" aria-label="Painel principal MICHELON">
@@ -1257,7 +1257,7 @@ async function compartilharCartao(){
       <div><div>
 <label>Valor de cobrança por km (R$/km)</label>
 <input id="valorKm" value="3.00" type="number" min="0" max="4" step="0.10" inputmode="decimal" placeholder="Ex.: 4,00" oninput="limitarValorKm();calcular(false)" onchange="limitarValorKm();calcular(false)">
-<div class="hint">Tarifa automática: somente ida R$ 2,10/km com passageiro + retorno vazio R$ 1,50/km; ida e volta R$ 3,00/km com passageiro. Margem padrão 10%.</div>
+<div class="hint" id="v91DescricaoTarifa" aria-live="polite">Tarifa automática: ida e volta R$ 3,00/km com passageiro nos dois trajetos. Margem inicial 10%, ajustável pelo administrador.</div>
 </div>
 <label>Passageiros</label><input id="passageiros" type="number" min="1" value="1"></div>
       <div><label>Ida e volta?</label><select id="idaVolta" onchange="alternarCamposRetorno()"><option value="sim" selected>Sim</option><option value="nao">Não</option></select></div>
@@ -5879,7 +5879,7 @@ setTimeout(run,2500);
    if(rapida)rapida.value='10';
    // Na V88, os trechos eram classificados em outro ouvinte, após o preço.
    // Recalcular apenas depois da atualização de classificação.
-   queueMicrotask(()=>{try{calcular(false)}catch(e){console.warn('V89: aguardando rota',e)}});
+   queueMicrotask(()=>{try{calcular(false)}catch(e){console.warn('V91: aguardando rota',e)}});
   }
   tipo.addEventListener('change',aplicar);
   aplicar();
@@ -5990,10 +5990,17 @@ setTimeout(run,2500);
   const pai=card&&card.parentElement;
   if(!pai)return;
   const box=document.createElement('div');
-  box.id='v89Conferencia';box.className='metric';
+  box.id='v91Conferencia';box.className='metric';
   box.style.cssText='grid-column:1/-1;background:#effaf7;border-color:#b6dfd6;font-size:13px;line-height:1.65';
   pai.appendChild(box);
   function atualizar(){
+   const modalidade=document.getElementById('idaVolta')?.value;
+   const dica=document.getElementById('v91DescricaoTarifa');
+   if(dica){
+    dica.textContent=modalidade==='nao'
+     ? 'Somente ida: R$ 2,10/km com passageiro; retorno vazio R$ 1,50/km. Margem inicial 10%, ajustável pelo administrador.'
+     : 'Ida e volta: R$ 3,00/km com passageiro nos dois trajetos. Margem inicial 10%, ajustável pelo administrador.';
+   }
    if(typeof seqTotais!=='function'||typeof seqAtiva!=='function'||!seqAtiva()){
     box.style.display='none';return;
    }
@@ -6004,7 +6011,7 @@ setTimeout(run,2500);
    const fmt=n=>Number(n||0).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1});
    const moeda=n=>Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
    const vazia=1.50;
-   box.innerHTML='<strong>🔒 Conferência administrativa — V90</strong><div>Com passageiro: '+fmt(t.clienteKm)+' km × '+moeda(tarifa)+'/km</div><div>Retorno vazio: '+fmt(t.motoristaKm)+' km × '+moeda(vazia)+'/km</div><div>Margem configurada: '+fmt(margem)+'% • Pedágios: estimados, conferir</div>';
+   box.innerHTML='<strong>🔒 Conferência administrativa — V91</strong><div>Com passageiro: '+fmt(t.clienteKm)+' km × '+moeda(tarifa)+'/km</div><div>Retorno vazio: '+fmt(t.motoristaKm)+' km × '+moeda(vazia)+'/km</div><div>Margem configurada: '+fmt(margem)+'% • Pedágios: estimados, conferir</div>';
   }
   const obs=new MutationObserver(atualizar);
   obs.observe(ancora,{childList:true,characterData:true,subtree:true});
