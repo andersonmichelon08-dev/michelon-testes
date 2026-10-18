@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="MICHELON">
-<title>Michelon Viagens Executivas • V71 TESTE — limpeza da cotação</title>
+<title>Michelon Viagens Executivas • V88 TESTE — retorno automático</title>
 <style>
 :root{--bg:#f8fafc;--card:#fff;--text:#0f172a;--muted:#64748b;--line:#e2e8f0;--primary:#0f766e;--primary2:#115e59;--ok:#166534;--warn:#92400e;--danger:#b91c1c}
 *{box-sizing:border-box}
@@ -1122,7 +1122,7 @@ window.seqAtiva=function(){return false};
 </div></nav>
 
 <div style="margin:10px 0;padding:10px 12px;border-radius:12px;background:#fff8df;border:1px solid #e4c35a;font-size:13px;">
-  🧪 <strong>Modo de teste V87 (preço competitivo experimental):</strong> esta versão usa armazenamento próprio da cotação e não deve alterar os dados do seu Financeiro.
+  🧪 <strong>Modo de teste V88 (retorno automático — experimental):</strong> esta versão usa armazenamento próprio da cotação e não deve alterar os dados do seu Financeiro.
 </div>
 
 <section id="mxHero" aria-label="Painel principal MICHELON">
@@ -5913,6 +5913,53 @@ setTimeout(run,2500);
    document.addEventListener('focusin',tryGps,true);
    setTimeout(tryGps,400);
  }
+})();
+</script>
+
+<script id="michelon-v88-retorno-obrigatorio">
+/* V88 TESTE: garante a volta ao ponto de partida antes de consultar a rota.
+   Sim = passageiro na volta; Não = motorista sozinho na volta. */
+(function(){
+  function preparar(){
+    if(typeof seqAtiva!=='function'||!seqAtiva()||typeof seqLer!=='function')return false;
+    const s=seqLer();
+    if(!s||s.pontos.length<2)return false;
+    const origem=String(s.pontos[0].endereco||'').trim();
+    const destino=String(s.pontos[1].endereco||'').trim();
+    if(!origem||!destino||mxMesmoEndereco(origem,destino))return false;
+    const tipo=document.getElementById('idaVolta')?.value==='sim'?'cliente':'motorista';
+    const ultimo=s.pontos[s.pontos.length-1];
+    let mudou=false;
+    if(s.pontos.length===2){
+      s.pontos.push(seqCriarPonto(origem,tipo));mudou=true;
+    }else if(mxMesmoEndereco(ultimo.endereco,origem)){
+      if(ultimo.tipo!==tipo){ultimo.tipo=tipo;mudou=true;}
+    }else{
+      s.pontos.push(seqCriarPonto(origem,tipo));mudou=true;
+    }
+    if(mudou){
+      seqConsulta++;
+      seqGuardar(s,true);
+      try{seqPersistir()}catch(e){}
+      try{calcular(false)}catch(e){}
+    }
+    return mudou;
+  }
+  function iniciar(){
+    if(typeof window.seqBuscarRota==='function'){
+      const original=window.seqBuscarRota;
+      window.seqBuscarRota=async function(){preparar();return original.apply(this,arguments)};
+    }
+    const tipo=document.getElementById('idaVolta');
+    if(tipo)tipo.addEventListener('change',function(){
+      // Após os demais ouvintes, verificar se o retorno está na sequência.
+      queueMicrotask(preparar);
+    });
+    const botao=document.getElementById('seqCalcular');
+    if(botao)botao.addEventListener('click',preparar,true);
+    // Ao abrir um rascunho, não recalcular sem ação do usuário.
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',iniciar);else iniciar();
 })();
 </script>
 </body>
