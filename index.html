@@ -5862,5 +5862,47 @@ setTimeout(run,2500);
   else iniciar();
 })();
 </script>
+
+<script id="michelon-v85-gps-automatico-teste">
+/* Teste: localização automática somente quando o formulário de endereços estiver visível.
+   Mantém o botão manual e nunca substitui uma origem já preenchida. */
+(function(){
+ let attempted=false, scheduled=false;
+ function visible(el){
+   if(!el || !el.isConnected)return false;
+   for(let p=el;p && p.nodeType===1;p=p.parentElement){
+     const st=getComputedStyle(p);
+     if(st.display==='none'||st.visibility==='hidden')return false;
+   }
+   return !!el.getClientRects().length;
+ }
+ function tryGps(){
+   if(attempted||scheduled)return;
+   const list=document.getElementById('seqLista');
+   const input=list?.querySelector('[data-seq-endereco="0"]');
+   const btn=list?.querySelector('.seq-gps-btn');
+   if(!input||!btn||!visible(input)||!visible(btn))return;
+   if(input.value.trim())return;
+   scheduled=true;
+   setTimeout(()=>{
+     scheduled=false;
+     const current=document.querySelector('#seqLista [data-seq-endereco="0"]');
+     const gps=document.querySelector('#seqLista .seq-gps-btn');
+     if(attempted||!current||!gps||!visible(current)||current.value.trim())return;
+     attempted=true;
+     gps.click();
+   },600);
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);
+ else start();
+ function start(){
+   const observer=new MutationObserver(()=>tryGps());
+   observer.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style']});
+   document.addEventListener('click',()=>setTimeout(tryGps,150),true);
+   document.addEventListener('focusin',tryGps,true);
+   setTimeout(tryGps,400);
+ }
+})();
+</script>
 </body>
 </html>
