@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="MICHELON">
-<title>Michelon Viagens Executivas • V88 TESTE — retorno automático</title>
+<title>Michelon Viagens Executivas • V90 TESTE — tarifas automáticas</title>
 <style>
 :root{--bg:#f8fafc;--card:#fff;--text:#0f172a;--muted:#64748b;--line:#e2e8f0;--primary:#0f766e;--primary2:#115e59;--ok:#166534;--warn:#92400e;--danger:#b91c1c}
 *{box-sizing:border-box}
@@ -1122,7 +1122,7 @@ window.seqAtiva=function(){return false};
 </div></nav>
 
 <div style="margin:10px 0;padding:10px 12px;border-radius:12px;background:#fff8df;border:1px solid #e4c35a;font-size:13px;">
-  🧪 <strong>Modo de teste V89 (retorno automático — experimental):</strong> esta versão usa armazenamento próprio da cotação e não deve alterar os dados do seu Financeiro.
+  🧪 <strong>Modo de teste V90 (tarifas automáticas — experimental):</strong> esta versão usa armazenamento próprio da cotação e não deve alterar os dados do seu Financeiro.
 </div>
 
 <section id="mxHero" aria-label="Painel principal MICHELON">
@@ -1256,8 +1256,8 @@ async function compartilharCartao(){
       <div class="full"><div id="conflitoAgenda" class="alerta"></div></div>
       <div><div>
 <label>Valor de cobrança por km (R$/km)</label>
-<input id="valorKm" value="2.10" type="number" min="0" max="4" step="0.10" inputmode="decimal" placeholder="Ex.: 4,00" oninput="limitarValorKm();calcular(false)" onchange="limitarValorKm();calcular(false)">
-<div class="hint">Tarifa com passageiro: padrão experimental R$ 2,10/km. Retorno vazio: R$ 1,50/km. Ajustável pelo administrador. Máximo: R$ 4,00/km.</div>
+<input id="valorKm" value="3.00" type="number" min="0" max="4" step="0.10" inputmode="decimal" placeholder="Ex.: 4,00" oninput="limitarValorKm();calcular(false)" onchange="limitarValorKm();calcular(false)">
+<div class="hint">Tarifa automática: somente ida R$ 2,10/km com passageiro + retorno vazio R$ 1,50/km; ida e volta R$ 3,00/km com passageiro. Margem padrão 10%.</div>
 </div>
 <label>Passageiros</label><input id="passageiros" type="number" min="1" value="1"></div>
       <div><label>Ida e volta?</label><select id="idaVolta" onchange="alternarCamposRetorno()"><option value="sim" selected>Sim</option><option value="nao">Não</option></select></div>
@@ -3271,6 +3271,7 @@ async function recalcularOrcamento(){
 
     // Atualiza imediatamente os números principais, mesmo que alguma parte
     // secundária da mensagem/WhatsApp tenha algum problema.
+    michelonTarifaAutomaticaV90();
     const kmBase=n('kmTotalInput');
     const t=window.__trecho2||{};
     const km=kmBase+(Number(t.km)||0)+operacaoTotais().km;
@@ -3312,6 +3313,19 @@ async function recalcularOrcamento(){
   }
 }
 
+// V90 TESTE: a modalidade e a tarifa são sincronizadas no próprio cálculo.
+function michelonTarifaAutomaticaV90(){
+  const idaVolta=document.getElementById('idaVolta');
+  const tarifa=document.getElementById('valorKm');
+  const margem=document.getElementById('margem');
+  const rapida=document.getElementById('margemRapidaV60');
+  const valor=idaVolta?.value==='sim'?3:2.10;
+  if(tarifa && Number(tarifa.value)!==valor)tarifa.value=valor.toFixed(2);
+  // Preserva eventual ajuste manual da margem; 10% é o padrão inicial.
+  if(margem && (!margem.value.trim() || !Number.isFinite(Number(margem.value))))margem.value='10';
+  if(rapida && margem && document.activeElement!==rapida)rapida.value=margem.value;
+  return valor;
+}
 // V87 TESTE — tarifa por ocupação: km com cliente e retorno vazio.
 // O campo valorKm representa a tarifa COM PASSAGEIRO; a tarifa vazia é fixa em R$1,50/km.
 function michelonBasePorTrechos(kmTotal,tarifaCliente,adicionais){
@@ -3326,6 +3340,7 @@ function michelonBasePorTrechos(kmTotal,tarifaCliente,adicionais){
   return kmTotal*tarifaCliente+adicionais;
 }
 function calcular(autosave=true){
+  michelonTarifaAutomaticaV90();
   const kmBase=n('kmTotalInput'), trecho2=(window.__trecho2||{}), km=kmBase+(Number(trecho2.km)||0)+operacaoTotais().km, consumo=n('consumo'), precoLitro=n('precoComb');
   const litros=consumo>0?km/consumo:0;
   const comb=(litros>0&&precoLitro>0)?litros*precoLitro:0;
@@ -3442,7 +3457,7 @@ function limpar(){
         return;
       }
       if(el.id==='passageiros') el.value='1';
-      else if(el.id==='margem') el.value='25';
+      else if(el.id==='margem') el.value='10';
       else if(el.id==='sinalPct') el.value='30';
       else if(el.id==='consumo') el.value='';
       else if(el.id==='tipoComb'||el.id==='veiculo') return;
@@ -5868,6 +5883,7 @@ setTimeout(run,2500);
   }
   tipo.addEventListener('change',aplicar);
   aplicar();
+  queueMicrotask(()=>{try{michelonTarifaAutomaticaV90()}catch(e){}});
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',iniciar);else iniciar();
 })();
@@ -5988,7 +6004,7 @@ setTimeout(run,2500);
    const fmt=n=>Number(n||0).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1});
    const moeda=n=>Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
    const vazia=1.50;
-   box.innerHTML='<strong>🔒 Conferência administrativa — V89</strong><div>Com passageiro: '+fmt(t.clienteKm)+' km × '+moeda(tarifa)+'/km</div><div>Retorno vazio: '+fmt(t.motoristaKm)+' km × '+moeda(vazia)+'/km</div><div>Margem configurada: '+fmt(margem)+'% • Pedágios: estimados, conferir</div>';
+   box.innerHTML='<strong>🔒 Conferência administrativa — V90</strong><div>Com passageiro: '+fmt(t.clienteKm)+' km × '+moeda(tarifa)+'/km</div><div>Retorno vazio: '+fmt(t.motoristaKm)+' km × '+moeda(vazia)+'/km</div><div>Margem configurada: '+fmt(margem)+'% • Pedágios: estimados, conferir</div>';
   }
   const obs=new MutationObserver(atualizar);
   obs.observe(ancora,{childList:true,characterData:true,subtree:true});
