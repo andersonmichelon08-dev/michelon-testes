@@ -1122,7 +1122,7 @@ window.seqAtiva=function(){return false};
 </div></nav>
 
 <div style="margin:10px 0;padding:10px 12px;border-radius:12px;background:#fff8df;border:1px solid #e4c35a;font-size:13px;">
-  🧪 <strong>Modo de teste V88 (retorno automático — experimental):</strong> esta versão usa armazenamento próprio da cotação e não deve alterar os dados do seu Financeiro.
+  🧪 <strong>Modo de teste V89 (retorno automático — experimental):</strong> esta versão usa armazenamento próprio da cotação e não deve alterar os dados do seu Financeiro.
 </div>
 
 <section id="mxHero" aria-label="Painel principal MICHELON">
@@ -5852,20 +5852,19 @@ setTimeout(run,2500);
 })();
 </script>
 
-<script id="michelon-v87-tarifas-automaticas">
+<script id="michelon-v89-tarifas-automaticas">
 (function(){
  function iniciar(){
-  const tipo=document.getElementById('idaVolta'),margem=document.getElementById('margem');
-  const rapido=document.getElementById('margemRapidaV60'),tarifa=document.getElementById('valorKm');
-  if(!tipo||!margem||!tarifa)return;
+  const tipo=document.getElementById('idaVolta'),tarifa=document.getElementById('valorKm');
+  const margem=document.getElementById('margem'),rapida=document.getElementById('margemRapidaV60');
+  if(!tipo||!tarifa)return;
   function aplicar(){
-   // Parâmetros de TESTE, não preço de mercado validado.
-   // Ida/volta com cliente: R$ 3/km nos dois trechos.
-   // Somente ida: R$ 2,10/km na ida e R$ 1,50/km no retorno vazio.
    tarifa.value=tipo.value==='sim'?'3.00':'2.10';
-   margem.value='10';
-   if(rapido)rapido.value='10';
-   try{calcular(false)}catch(e){console.warn('V87 aguardando rota',e)}
+   if(margem)margem.value='10';
+   if(rapida)rapida.value='10';
+   // Na V88, os trechos eram classificados em outro ouvinte, após o preço.
+   // Recalcular apenas depois da atualização de classificação.
+   queueMicrotask(()=>{try{calcular(false)}catch(e){console.warn('V89: aguardando rota',e)}});
   }
   tipo.addEventListener('change',aplicar);
   aplicar();
@@ -5937,6 +5936,9 @@ setTimeout(run,2500);
     }else{
       s.pontos.push(seqCriarPonto(origem,tipo));mudou=true;
     }
+    // A tarifa de passageiro deve refletir a modalidade mesmo se a rota foi carregada de um rascunho.
+    const tarifa=document.getElementById('valorKm');
+    if(tarifa)tarifa.value=tipo==='cliente'?'3.00':'2.10';
     if(mudou){
       seqConsulta++;
       seqGuardar(s,true);
@@ -5960,6 +5962,40 @@ setTimeout(run,2500);
     // Ao abrir um rascunho, não recalcular sem ação do usuário.
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',iniciar);else iniciar();
+})();
+</script>
+
+<script id="michelon-v89-conferencia-interna">
+(function(){
+ function iniciar(){
+  const ancora=document.getElementById('kmView');
+  if(!ancora)return;
+  const card=ancora.closest('.metric')||ancora.parentElement;
+  const pai=card&&card.parentElement;
+  if(!pai)return;
+  const box=document.createElement('div');
+  box.id='v89Conferencia';box.className='metric';
+  box.style.cssText='grid-column:1/-1;background:#effaf7;border-color:#b6dfd6;font-size:13px;line-height:1.65';
+  pai.appendChild(box);
+  function atualizar(){
+   if(typeof seqTotais!=='function'||typeof seqAtiva!=='function'||!seqAtiva()){
+    box.style.display='none';return;
+   }
+   box.style.display='block';
+   const t=seqTotais();
+   const tarifa=Number(document.getElementById('valorKm')?.value||0);
+   const margem=Number(document.getElementById('margem')?.value||0);
+   const fmt=n=>Number(n||0).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1});
+   const moeda=n=>Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+   const vazia=1.50;
+   box.innerHTML='<strong>🔒 Conferência administrativa — V89</strong><div>Com passageiro: '+fmt(t.clienteKm)+' km × '+moeda(tarifa)+'/km</div><div>Retorno vazio: '+fmt(t.motoristaKm)+' km × '+moeda(vazia)+'/km</div><div>Margem configurada: '+fmt(margem)+'% • Pedágios: estimados, conferir</div>';
+  }
+  const obs=new MutationObserver(atualizar);
+  obs.observe(ancora,{childList:true,characterData:true,subtree:true});
+  ['idaVolta','valorKm','margem'].forEach(id=>document.getElementById(id)?.addEventListener('change',()=>queueMicrotask(atualizar)));
+  atualizar();
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',iniciar);else iniciar();
 })();
 </script>
 </body>
