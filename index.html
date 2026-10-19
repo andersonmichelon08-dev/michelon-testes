@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="MICHELON">
-<title>Michelon Viagens Executivas • V93 TESTE — tabela de pedágios</title>
+<title>Michelon Viagens Executivas • V94 TESTE — tabela de pedágios</title>
 <style>
 :root{--bg:#f8fafc;--card:#fff;--text:#0f172a;--muted:#64748b;--line:#e2e8f0;--primary:#0f766e;--primary2:#115e59;--ok:#166534;--warn:#92400e;--danger:#b91c1c}
 *{box-sizing:border-box}
@@ -5435,15 +5435,40 @@ function mxV81NotaGuarulhos(origem,destino,rota){
  const geometria=mxV82DiagnosticoGeometria(rota);
  return geometria+' REFERÊNCIA OFICIAL AUTOBAN (01/07/2026), NÃO SOMADA: '+lista.map(p=>p.nome+' km '+p.km+' R$ '+p.valor.toFixed(2).replace('.',',')).join(' • ')+'. ATENÇÃO: são possíveis praças do corredor, NÃO uma lista de praças atravessadas. A referência Campo Limpo/Caieiras é aproximada e NÃO distingue as duas praças. Identifique as praças efetivas de CADA sentido e preencha o total manualmente. Fonte: '+SEQ_FONTE_AUTOBAN;
 }
+// V94: vincula a base de referência ao diagnóstico de cada trecho.
+// Não presume travessia por mera coincidência de nome de rodovia.
+function mxV94Candidatas(rota){
+ const n=mxTollNorm;
+ const vias=(rota.roads||[]).map(n).join(' | ');
+ const base=window.MX_V93_BASE_PEDAGIOS||[];
+ const rodovias=[];
+ if(/bandeirantes|sp[ -]?348/.test(vias))rodovias.push('SP-348');
+ if(/anhanguera|sp[ -]?330/.test(vias))rodovias.push('SP-330');
+ if(/dom pedro|sp[ -]?065/.test(vias))rodovias.push('SP-065');
+ if(/ayrton senna|sp[ -]?070/.test(vias))rodovias.push('SP-070');
+ if(/carvalho pinto/.test(vias))rodovias.push('SP-070');
+ if(/washington luis|sp[ -]?310/.test(vias))rodovias.push('SP-310');
+ if(/castello branco|castelo branco|sp[ -]?280/.test(vias))rodovias.push('SP-280');
+ const unicas=[...new Set(rodovias)];
+ const candidatas=base.filter(p=>unicas.some(r=>p.rodovia.startsWith(r)));
+ const format=v=>v===null?'tarifa pendente':'R$ '+Number(v).toFixed(2).replace('.',',');
+ return 'DIAGNÓSTICO V94 — '+(unicas.length?'Rodovias identificadas: '+unicas.join(', '):'Nenhuma rodovia da base identificada nos nomes fornecidos pela rota')+'. '+
+ (candidatas.length?'Praças de referência (NÃO necessariamente atravessadas): '+candidatas.map(p=>p.praca+' ('+p.rodovia+', '+format(p.valor)+')').join('; ')+'. ':'Nenhuma praça de referência identificada. ')+
+ 'A tabela não comprova a passagem, a pista, o sentido nem a cobrança. Pedágio permanece sujeito à conferência por trecho.';
+}
+function mxV94AnexarNota(rota){
+ const texto=mxV94Candidatas(rota);
+ rota.pedNota=(rota.pedNota?rota.pedNota+' ':'')+texto;
+}
 async function seqPedagiosTrecho(origem,destino,rota){
   const regional=mxV77PedagioBandeirantes(origem,destino,rota);
-  if(regional!==null)return regional;
+  if(regional!==null){mxV94AnexarNota(rota);return regional;}
   const notaGuarulhos=mxV81NotaGuarulhos(origem,destino,rota);
-  if(notaGuarulhos){rota.pedNota=notaGuarulhos;return null;} // V83: diagnóstico local imediato; sem consulta pública inconclusiva
+  if(notaGuarulhos){rota.pedNota=notaGuarulhos;mxV94AnexarNota(rota);return null;} // V83: diagnóstico local imediato; sem consulta pública inconclusiva
   const salvo=notaGuarulhos?null:mxTollLookup(origem,destino,rota.km);
   if(salvo!==null){
     rota.pedNota='Valor informado anteriormente neste navegador para este trecho. Confira se a tarifa e o caminho continuam iguais.';
-    return salvo;
+    mxV94AnexarNota(rota);return salvo;
   }
   try{
     const resultado=await limitePromessaPedagio(calcularPedagiosDinamicos(rota.coords,[]),12000);
@@ -5451,13 +5476,13 @@ async function seqPedagiosTrecho(origem,destino,rota){
       // A consulta gratuita é indicativa: sem verificação de sentido/tarifa,
       // não se deve lançar automaticamente no custo do cliente.
       rota.pedNota=(notaGuarulhos||'PEDÁGIO PENDENTE — a consulta pública retornou registros próximos, mas não verificou passagem pela praça nem sentido. Nenhuma tarifa foi somada automaticamente. Informe o total deste trecho após conferir a rota.');
-      return null;
+      mxV94AnexarNota(rota);return null;
     }
     rota.pedNota=notaGuarulhos||('PEDÁGIO PENDENTE — a consulta pública encontrou '+resultado.encontrados+' possíveis registros próximos da rota, mas não confirmou praças, sentido e tarifas. Registros repetidos ou de vias paralelas NÃO foram somados. Confira as praças no mapa e informe o total deste trecho manualmente.');
   }catch(e){
     rota.pedNota=notaGuarulhos||('Consulta gratuita indisponível. Confira as praças na rota e informe o total deste trecho. Rodovias identificadas: '+(rota.roads||[]).join(', '));
   }
-  return null;
+  mxV94AnexarNota(rota);return null;
 }
 
 async function seqBuscarRota(){
@@ -6028,8 +6053,8 @@ setTimeout(run,2500);
 #mxV93Base{max-width:920px;margin:14px auto;padding:16px}#mxV93Base .mxv93filters{display:grid;grid-template-columns:2fr 1fr;gap:8px;margin:12px 0}#mxV93Base table{min-width:760px;width:100%;border-collapse:collapse;font-size:12px}#mxV93Base th,#mxV93Base td{padding:9px 7px;border-bottom:1px solid #e2e8f0;text-align:left;vertical-align:top}#mxV93Base th{background:#f1f5f9}#mxV93Base .mxv93warn{background:#fff4dd;border:1px solid #f4d58d;border-radius:10px;padding:12px;font-size:13px;line-height:1.5}#mxV93Base .mxv93ok{color:#166534;font-weight:700}#mxV93Base .mxv93pending{color:#9a3412;font-weight:700}#mxV93Base .mxv93tag{font-size:12px;background:#edf8f6;padding:7px 10px;border-radius:9px;margin:7px 0}#mxV93Base .mxv93summary{font-size:13px;line-height:1.55}#mxV93Base .mxv93summary strong{color:#0f766e}#mxV93Base .mxv93source{font-size:11px}#mxV93Base .mxv93source a{color:#0f766e}#mxV93Base button{width:auto;font-size:12px;padding:9px 12px}@media(max-width:580px){#mxV93Base .mxv93filters{grid-template-columns:1fr}}
 </style>
 <section id="mxV93Base" class="card">
-<h3 style="margin:0 0 6px">🛣️ Base de pedágios e regras — V93 TESTE</h3>
-<p class="mxv93summary">Base ampliada de referência para <strong>carro de passeio</strong>. Contém tarifas publicadas e corredores ainda pendentes. <strong>Não calcula automaticamente travessias</strong>: isso depende de identificar cada praça na geometria e o sentido real da rota.</p>
+<h3 style="margin:0 0 6px">🛣️ Base de pedágios e regras — V94 TESTE</h3>
+<p class="mxv93summary">Base de referência conectada ao diagnóstico dos trechos para <strong>carro de passeio</strong>. Contém tarifas publicadas e corredores ainda pendentes. <strong>Mostra praças candidatas por rodovia, mas não confirma travessias automaticamente</strong>: isso depende de identificar cada praça na geometria e o sentido real da rota.</p>
 <div class="mxv93warn"><strong>⚠️ Regra de segurança:</strong> tarifa publicada ≠ pedágio cobrado na sua viagem. Sem praça, sentido e rota confirmados, o orçamento continua <strong>provisório</strong>. Nunca substituir valor desconhecido por zero. A conferência dos trechos permanece necessária antes do envio ao cliente.</div>
 <div class="mxv93tag"><strong>Regras atuais:</strong> somente ida R$ 2,10/km com passageiro + R$ 1,50/km retorno vazio; ida e volta R$ 3,00/km com passageiro em ambos os trajetos; margem inicial 10%, ajustável pelo administrador. Valor final único ao cliente; custos internos reservados.</div>
 <details open><summary>Consultar tabela de praças e rodovias</summary>
