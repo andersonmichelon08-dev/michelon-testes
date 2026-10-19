@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="MICHELON">
-<title>Michelon Viagens Executivas • V94 TESTE — tabela de pedágios</title>
+<title>Michelon Viagens Executivas • V95 TESTE — diagnóstico de pedágios</title>
 <style>
 :root{--bg:#f8fafc;--card:#fff;--text:#0f172a;--muted:#64748b;--line:#e2e8f0;--primary:#0f766e;--primary2:#115e59;--ok:#166534;--warn:#92400e;--danger:#b91c1c}
 *{box-sizing:border-box}
@@ -1122,7 +1122,7 @@ window.seqAtiva=function(){return false};
 </div></nav>
 
 <div style="margin:10px 0;padding:10px 12px;border-radius:12px;background:#fff8df;border:1px solid #e4c35a;font-size:13px;">
-  🧪 <strong>Modo de teste V93 (tabela de pedágios — experimental):</strong> esta versão usa armazenamento próprio da cotação e não deve alterar os dados do seu Financeiro.
+  🧪 <strong>Modo de teste V95 (diagnóstico de pedágios — experimental):</strong> esta versão usa armazenamento próprio da cotação e não deve alterar os dados do seu Financeiro.
 </div>
 
 <section id="mxHero" aria-label="Painel principal MICHELON">
@@ -5414,13 +5414,13 @@ function mxV84PosicaoNaRota(p,coords){
 }
 function mxV82DiagnosticoGeometria(rota){
  const coords=Array.isArray(rota.coords)?rota.coords:[];
- if(coords.length<2)return 'DIAGNÓSTICO V85: geometria indisponível.';
+ if(coords.length<2)return 'DIAGNÓSTICO GEOMÉTRICO: geometria indisponível.';
  const lista=PEDAGIOS_CATALOGO.filter(p=>p.rodovia==='SP-348')
   .map(p=>({p,...mxV84PosicaoNaRota(p,coords)}))
   .sort((a,b)=>(a.indice+a.frac)-(b.indice+b.frac));
  const fmt=x=>x.p.nome+' ('+x.dist.toFixed(2).replace('.',',')+' km da linha, posição '+(x.indice+1)+'/'+coords.length+')';
  const perto=lista.filter(x=>x.dist<=2.2);
- return 'DIAGNÓSTICO V85 — '+coords.length+' pontos; ordem das referências próximas no SENTIDO DESTE TRECHO: '+
+ return 'DIAGNÓSTICO GEOMÉTRICO — '+coords.length+' pontos; ordem das referências próximas no SENTIDO DESTE TRECHO: '+
   (perto.length?perto.map(fmt).join(' → '):'nenhuma até 2,2 km')+
   '. Referências mais distantes: '+(lista.filter(x=>x.dist>2.2).map(fmt).join(' / ')||'nenhuma')+
   '. ATENÇÃO: a ordem e a proximidade NÃO confirmam passagem pela praça ou cobrança. Campo Limpo (capital → interior) e Caieiras (interior → capital) são praças distintas, apesar da referência aproximada conjunta usada neste diagnóstico.';
@@ -5442,19 +5442,26 @@ function mxV94Candidatas(rota){
  const vias=(rota.roads||[]).map(n).join(' | ');
  const base=window.MX_V93_BASE_PEDAGIOS||[];
  const rodovias=[];
- if(/bandeirantes|sp[ -]?348/.test(vias))rodovias.push('SP-348');
- if(/anhanguera|sp[ -]?330/.test(vias))rodovias.push('SP-330');
- if(/dom pedro|sp[ -]?065/.test(vias))rodovias.push('SP-065');
- if(/ayrton senna|sp[ -]?070/.test(vias))rodovias.push('SP-070');
- if(/carvalho pinto/.test(vias))rodovias.push('SP-070');
- if(/washington luis|sp[ -]?310/.test(vias))rodovias.push('SP-310');
- if(/castello branco|castelo branco|sp[ -]?280/.test(vias))rodovias.push('SP-280');
+ const testes=[['SP-348',/bandeirantes|sp[ -]?348/],['SP-330',/anhanguera|sp[ -]?330/],['SP-065',/dom pedro|sp[ -]?065/],['SP-332',/zeferino vaz|sp[ -]?332/],['SP-070',/ayrton senna|carvalho pinto|sp[ -]?070/],['SP-310',/washington luis|sp[ -]?310/],['SP-280',/castello branco|castelo branco|sp[ -]?280/]];
+ testes.forEach(([cod,rx])=>{if(rx.test(vias))rodovias.push(cod)});
  const unicas=[...new Set(rodovias)];
- const candidatas=base.filter(p=>unicas.some(r=>p.rodovia.startsWith(r)));
- const format=v=>v===null?'tarifa pendente':'R$ '+Number(v).toFixed(2).replace('.',',');
- return 'DIAGNÓSTICO V94 — '+(unicas.length?'Rodovias identificadas: '+unicas.join(', '):'Nenhuma rodovia da base identificada nos nomes fornecidos pela rota')+'. '+
- (candidatas.length?'Praças de referência (NÃO necessariamente atravessadas): '+candidatas.map(p=>p.praca+' ('+p.rodovia+', '+format(p.valor)+')').join('; ')+'. ':'Nenhuma praça de referência identificada. ')+
- 'A tabela não comprova a passagem, a pista, o sentido nem a cobrança. Pedágio permanece sujeito à conferência por trecho.';
+ const candidatas=base.filter(p=>unicas.some(r=>p.rodovia.startsWith(r)) && p.valor!==null);
+ const coords=Array.isArray(rota.coords)?rota.coords:[];
+ const localizadas=candidatas.map(p=>{
+   // Apenas três referências do cadastro antigo possuem coordenadas aproximadas.
+   // A proximidade geométrica NÃO autoriza cobrança ou confirma sentido.
+   const ponto=PEDAGIOS_CATALOGO.find(x=>n(x.nome)===n(p.praca)&&p.rodovia.startsWith(x.rodovia));
+   const pos=ponto&&coords.length>1?mxV84PosicaoNaRota(ponto,coords):null;
+   return {p,pos};
+ }).sort((a,b)=>(a.pos?.indice??Infinity)-(b.pos?.indice??Infinity));
+ const formato=x=>'R$ '+Number(x).toFixed(2).replace('.',',');
+ const detalhes=localizadas.map(({p,pos})=>{
+   const proximidade=pos?(' referência a '+pos.dist.toFixed(2).replace('.',',')+' km da linha, posição '+(pos.indice+1)+'/'+coords.length):' coordenada de praça não cadastrada';
+   return p.praca+' ('+p.rodovia+', '+formato(p.valor)+';'+proximidade+')';
+ });
+ return 'DIAGNÓSTICO V95 — '+(unicas.length?'Rodovias mencionadas na rota: '+unicas.join(', '):'Nenhuma rodovia da base identificada pelos nomes da rota')+'. '+
+ (detalhes.length?'Referências para conferência, em ordem geométrica quando possível: '+detalhes.join('; ')+'. ':'Sem referências com tarifa nesta base. ')+
+ 'IMPORTANTE: nomes de rodovias, proximidade e ordem dos pontos NÃO comprovam travessia, sentido, acesso à praça ou valor devido. O cálculo automático de cobrança permanece indisponível para praças não verificadas.';
 }
 function mxV94AnexarNota(rota){
  const texto=mxV94Candidatas(rota);
@@ -6037,7 +6044,7 @@ setTimeout(run,2500);
    const fmt=n=>Number(n||0).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1});
    const moeda=n=>Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
    const vazia=1.50;
-   box.innerHTML='<strong>🔒 Conferência administrativa — V93</strong><div>Com passageiro: '+fmt(t.clienteKm)+' km × '+moeda(tarifa)+'/km</div><div>Retorno vazio: '+fmt(t.motoristaKm)+' km × '+moeda(vazia)+'/km</div><div>Margem configurada: '+fmt(margem)+'% • Pedágios: estimados, conferir</div>';
+   box.innerHTML='<strong>🔒 Conferência administrativa — V95</strong><div>Com passageiro: '+fmt(t.clienteKm)+' km × '+moeda(tarifa)+'/km</div><div>Retorno vazio: '+fmt(t.motoristaKm)+' km × '+moeda(vazia)+'/km</div><div>Margem configurada: '+fmt(margem)+'% • Pedágios: estimados, conferir</div>';
   }
   const obs=new MutationObserver(atualizar);
   obs.observe(ancora,{childList:true,characterData:true,subtree:true});
@@ -6053,8 +6060,8 @@ setTimeout(run,2500);
 #mxV93Base{max-width:920px;margin:14px auto;padding:16px}#mxV93Base .mxv93filters{display:grid;grid-template-columns:2fr 1fr;gap:8px;margin:12px 0}#mxV93Base table{min-width:760px;width:100%;border-collapse:collapse;font-size:12px}#mxV93Base th,#mxV93Base td{padding:9px 7px;border-bottom:1px solid #e2e8f0;text-align:left;vertical-align:top}#mxV93Base th{background:#f1f5f9}#mxV93Base .mxv93warn{background:#fff4dd;border:1px solid #f4d58d;border-radius:10px;padding:12px;font-size:13px;line-height:1.5}#mxV93Base .mxv93ok{color:#166534;font-weight:700}#mxV93Base .mxv93pending{color:#9a3412;font-weight:700}#mxV93Base .mxv93tag{font-size:12px;background:#edf8f6;padding:7px 10px;border-radius:9px;margin:7px 0}#mxV93Base .mxv93summary{font-size:13px;line-height:1.55}#mxV93Base .mxv93summary strong{color:#0f766e}#mxV93Base .mxv93source{font-size:11px}#mxV93Base .mxv93source a{color:#0f766e}#mxV93Base button{width:auto;font-size:12px;padding:9px 12px}@media(max-width:580px){#mxV93Base .mxv93filters{grid-template-columns:1fr}}
 </style>
 <section id="mxV93Base" class="card">
-<h3 style="margin:0 0 6px">🛣️ Base de pedágios e regras — V94 TESTE</h3>
-<p class="mxv93summary">Base de referência conectada ao diagnóstico dos trechos para <strong>carro de passeio</strong>. Contém tarifas publicadas e corredores ainda pendentes. <strong>Mostra praças candidatas por rodovia, mas não confirma travessias automaticamente</strong>: isso depende de identificar cada praça na geometria e o sentido real da rota.</p>
+<h3 style="margin:0 0 6px">🛣️ Base de pedágios e regras — V95 TESTE</h3>
+<p class="mxv93summary">Base de referência conectada ao diagnóstico dos trechos para <strong>carro de passeio</strong>. Contém tarifas publicadas e corredores ainda pendentes. <strong>Mostra referências por rodovia e, quando há coordenadas, a proximidade e a ordem na geometria; não confirma travessias automaticamente</strong>: isso depende de identificar cada praça na geometria e o sentido real da rota.</p>
 <div class="mxv93warn"><strong>⚠️ Regra de segurança:</strong> tarifa publicada ≠ pedágio cobrado na sua viagem. Sem praça, sentido e rota confirmados, o orçamento continua <strong>provisório</strong>. Nunca substituir valor desconhecido por zero. A conferência dos trechos permanece necessária antes do envio ao cliente.</div>
 <div class="mxv93tag"><strong>Regras atuais:</strong> somente ida R$ 2,10/km com passageiro + R$ 1,50/km retorno vazio; ida e volta R$ 3,00/km com passageiro em ambos os trajetos; margem inicial 10%, ajustável pelo administrador. Valor final único ao cliente; custos internos reservados.</div>
 <details open><summary>Consultar tabela de praças e rodovias</summary>
